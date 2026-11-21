@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-cream: #fffbf2;
+  --surface-soft: #faf5e8;
+  --ink-espresso: #24160e;
+  --accent-ghee: #c6922c;
+  --accent-leaf: #5e8b3e;
+}
+
+body {
+  background-color: var(--bg-cream);
+  color: var(--ink-espresso);
+}
+
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marqueeScroll 28s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
