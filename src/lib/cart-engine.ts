@@ -12,7 +12,7 @@ export async function releaseExpiredLocks(tx: Prisma.TransactionClient | typeof 
 
   if (expiredLocks.length > 0) {
     await tx.cartLock.deleteMany({ where: { expiresAt: { lt: now } } });
-    const cartIds = [...new Set(expiredLocks.map((l) => l.cartId))];
+    const cartIds = Array.from(new Set(expiredLocks.map((l) => l.cartId)));
     await tx.cart.updateMany({
       where: { id: { in: cartIds }, status: "LOCKED" },
       data: { status: "ACTIVE", lockedUntil: null },
