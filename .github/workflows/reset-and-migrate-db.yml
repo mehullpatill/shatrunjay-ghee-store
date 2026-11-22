@@ -1,0 +1,100 @@
+name: Reset and migrate database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type YES to confirm wiping the Aiven public schema'
+        required: true
+        type: string
+        default: 'NO'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shatrunjay-database-reset
+  cancel-in-progress: false
+
+jobs:
+  reset-migrate-seed:
+    if: ${{ inputs.confirm == 'YES' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check required secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ADMIN_SEED_PASSWORD: ${{ secrets.ADMIN_SEED_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL" || { echo "DATABASE_URL secret is missing"; exit 1; }
+          test -n "$ADMIN_SEED_PASSWORD" || { echo "ADMIN_SEED_PASSWORD secret is missing"; exit 1; }
+          test "${#ADMIN_SEED_PASSWORD}" -ge 12 || { echo "ADMIN_SEED_PASSWORD must be at least 12 characters"; exit 1; }
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create encrypted-connection database backup
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p db-backup
+          pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL" --file="db-backup/shatrunjay-before-reset.dump"
+          test -s db-backup/shatrunjay-before-reset.dump
+
+      - name: Upload pre-reset backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: shatrunjay-aiven-pre-reset-backup
+          path: db-backup/shatrunjay-before-reset.dump
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Reset public schema
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma generate
+
+      - name: Apply Prisma migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Seed initial store data
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ADMIN_SEED_PASSWORD: ${{ secrets.ADMIN_SEED_PASSWORD }}
+          ADMIN_SEED_EMAIL: ${{ secrets.ADMIN_SEED_EMAIL }}
+        run: npm run prisma:seed
+
+      - name: Verify database schema and seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT 'tables=' || count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE';"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT 'products=' || count(*) FROM \"Product\";"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT 'categories=' || count(*) FROM \"Category\";"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT 'admin_users=' || count(*) FROM \"User\" WHERE \"role\" = 'ADMIN';"
