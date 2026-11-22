@@ -1,0 +1,67 @@
+name: Import uploaded project ZIP
+
+on:
+  push:
+    paths:
+      - "shatrunjay-ghee-v2.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Safely extract project into repository
+        run: |
+          python3 - <<'PY'
+          import os, shutil, zipfile
+          from pathlib import PurePosixPath
+
+          archive = "shatrunjay-ghee-v2.zip"
+          with zipfile.ZipFile(archive) as z:
+              for info in z.infolist():
+                  raw = info.filename.replace("\\", "/")
+                  path = PurePosixPath(raw)
+                  if path.is_absolute() or ".." in path.parts:
+                      continue
+                  parts = list(path.parts)
+                  if not parts:
+                      continue
+                  if parts[0] == "shatrunjay-ghee":
+                      parts = parts[1:]
+                  if not parts:
+                      continue
+                  if any(p in {".git", "node_modules", ".next", "dist", "build", "coverage"} for p in parts):
+                      continue
+                  name = parts[-1]
+                  if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
+                      continue
+                  dest = os.path.join(".", *parts)
+                  if info.is_dir():
+                      os.makedirs(dest, exist_ok=True)
+                  else:
+                      os.makedirs(os.path.dirname(dest), exist_ok=True)
+                      with z.open(info) as src, open(dest, "wb") as dst:
+                          shutil.copyfileobj(src, dst)
+
+          os.remove(archive)
+          PY
+
+      - name: Commit imported source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes found."
+            exit 1
+          fi
+          git commit -m "Import Shatrunjay Ghee project source"
+          git push origin HEAD:main
