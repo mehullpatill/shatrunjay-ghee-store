@@ -1,0 +1,76 @@
+name: Initialize production database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_empty_database:
+        description: "Confirm this is a fresh database with no data to preserve"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shatrunjay-production-db-init
+  cancel-in-progress: false
+
+jobs:
+  initialize:
+    if: ${{ inputs.confirm_empty_database == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL" || { echo "::error::Missing DATABASE_URL repository secret"; exit 1; }
+          test -n "$ADMIN_EMAIL" || { echo "::error::Missing ADMIN_EMAIL repository secret"; exit 1; }
+          test -n "$ADMIN_PASSWORD" || { echo "::error::Missing ADMIN_PASSWORD repository secret"; exit 1; }
+          if [ "$ADMIN_PASSWORD" = "ChangeThisStrongAdminPassword!123" ]; then
+            echo "::error::Refusing to use the seed script's fallback admin password"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+
+      - name: Generate initial migration from Prisma schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d prisma/migrations ] && find prisma/migrations -mindepth 2 -maxdepth 2 -name migration.sql -print -quit | grep -q .; then
+            echo "::error::A migration already exists. Refusing to generate an initial migration."
+            exit 1
+          fi
+          mkdir -p prisma/migrations/20261122000000_init
+          npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/20261122000000_init/migration.sql
+          test -s prisma/migrations/20261122000000_init/migration.sql
+          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
+
+      - name: Commit migration to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/migrations
+          git commit -m "chore(db): add initial PostgreSQL migration"
+          git push origin HEAD:main
+
+      - name: Apply migration to production database
+        run: npx prisma migrate deploy
+
+      - name: Seed initial store data and admin
+        run: npm run db:seed
