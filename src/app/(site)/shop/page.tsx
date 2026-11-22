@@ -14,7 +14,7 @@ export default async function ShopAllPage({
   const sp = await searchParams;
   const q = (sp.q || "").trim();
   const categorySlug = (sp.category || "").trim();
-  const sort = sp.sort || "featured";
+  const sort = sp.sort || "all";
   const page = Math.max(1, Number(sp.page || "1") || 1);
   const pageSize = 12;
 
@@ -53,6 +53,10 @@ export default async function ShopAllPage({
           ? { mostBoughtOrder: "asc" }
           : sort === "fresh_arrivals"
           ? { freshArrivalOrder: "asc" }
+          : sort === "price_asc"
+          ? { variants: { _min: { pricePaise: "asc" } } }
+          : sort === "price_desc"
+          ? { variants: { _min: { pricePaise: "desc" } } }
           : { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -75,12 +79,6 @@ export default async function ShopAllPage({
       };
     })
     .filter(Boolean) as ProductCardData[];
-
-  if (sort === "price_asc") {
-    cards = [...cards].sort((a, b) => a.defaultVariant.pricePaise - b.defaultVariant.pricePaise);
-  } else if (sort === "price_desc") {
-    cards = [...cards].sort((a, b) => b.defaultVariant.pricePaise - a.defaultVariant.pricePaise);
-  }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
