@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getEnv } from "./env";
+import { getEnv, requireEnvValue } from "./env";
 
 let cachedS3: S3Client | null = null;
 
@@ -9,10 +9,10 @@ function getS3Client(): S3Client {
   if (cachedS3) return cachedS3;
   const env = getEnv();
   cachedS3 = new S3Client({
-    region: env.AWS_REGION,
+    region: requireEnvValue(env.AWS_REGION, "AWS_REGION"),
     credentials: {
-      accessKeyId: env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+      accessKeyId: requireEnvValue(env.AWS_ACCESS_KEY_ID, "AWS_ACCESS_KEY_ID"),
+      secretAccessKey: requireEnvValue(env.AWS_SECRET_ACCESS_KEY, "AWS_SECRET_ACCESS_KEY"),
     },
   });
   return cachedS3;
@@ -81,6 +81,8 @@ export async function createPresignedUploadUrl(params: {
   }
 
   const env = getEnv();
+  requireEnvValue(env.S3_BUCKET_NAME, "S3_BUCKET_NAME");
+  requireEnvValue(env.S3_PUBLIC_BASE_URL, "S3_PUBLIC_BASE_URL");
   const safeFolder = params.folder.replace(/[^a-zA-Z0-9/_-]/g, "");
   const randomId = crypto.randomBytes(16).toString("hex");
   const s3Key = `${safeFolder}/${randomId}.${cleanExt}`;
@@ -129,6 +131,8 @@ export async function uploadBufferToS3(params: {
   contentType: string;
 }): Promise<string> {
   const env = getEnv();
+  requireEnvValue(env.S3_BUCKET_NAME, "S3_BUCKET_NAME");
+  requireEnvValue(env.S3_PUBLIC_BASE_URL, "S3_PUBLIC_BASE_URL");
   await getS3Client().send(
     new PutObjectCommand({
       Bucket: env.S3_BUCKET_NAME,
