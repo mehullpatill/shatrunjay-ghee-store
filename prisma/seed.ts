@@ -9,7 +9,10 @@ async function main() {
 
   // 1. Admin user
   const adminEmail = (process.env.ADMIN_SEED_EMAIL || "admin@shatrunjayghee.com").toLowerCase();
-  const adminPassword = process.env.ADMIN_SEED_PASSWORD || "ChangeMeImmediately!2026";
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD;
+  if (!adminPassword || adminPassword.length < 12) {
+    throw new Error("ADMIN_SEED_PASSWORD must be set and at least 12 characters long.");
+  }
   const adminHash = await argon2.hash(adminPassword, {
     type: argon2.argon2id,
     memoryCost: 65536,
