@@ -2,8 +2,6 @@ name: Import uploaded project ZIP
 
 on:
   push:
-    paths:
-      - "shatrunjay-ghee-v2.zip"
   workflow_dispatch:
 
 permissions:
