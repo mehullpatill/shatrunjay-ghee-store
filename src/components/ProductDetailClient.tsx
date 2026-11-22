@@ -85,13 +85,13 @@ export default function ProductDetailClient({
             −
           </button>
           <span className="min-w-[2rem] text-center text-sm font-semibold">{qty}</span>
-          <button type="button" onClick={() => setQty(Math.min(50, qty + 1))} className="px-2 font-bold">
+          <button type="button" onClick={() => setQty(Math.min(50, selected.stockQty, qty + 1))} disabled={qty >= Math.min(50, selected.stockQty)} className="px-2 font-bold disabled:opacity-40">
             +
           </button>
         </div>
         <button
           type="button"
-          disabled={selected.stockQty <= 0}
+          disabled={selected.stockQty <= 0 || qty > selected.stockQty}
           onClick={() =>
             addItem(
               {
@@ -112,6 +112,10 @@ export default function ProductDetailClient({
           {selected.stockQty > 0 ? "Add to Cart" : "Out of Stock"}
         </button>
       </div>
+
+      {selected.stockQty > 0 && selected.stockQty <= 10 && (
+        <p className="mt-2 text-xs font-medium text-maroon">Only {selected.stockQty} left in stock</p>
+      )}
 
       {/* Required Product Badges */}
       <div className="mt-6 grid grid-cols-2 gap-3">
