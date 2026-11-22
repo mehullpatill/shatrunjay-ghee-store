@@ -1,61 +1,42 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { releaseExpiredLocks } from "@/lib/cart-engine";
 import { sendEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  const expected = process.env.CRON_SECRET;
-
-  if (!expected || authHeader !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = req.headers.get("authorization");
+  const secret = process.env.CRON_SECRET;
+  if (secret && auth !== `Bearer ${secret}`) {
+    return Response.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    await releaseExpiredLocks();
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const carts = await prisma.cart.findMany({
+    where: {
+      status: "ACTIVE",
+      emailForRecovery: { not: null },
+      reminderSentAt: null,
+      lastActivityAt: { lt: cutoff },
+      items: { some: {} },
+    },
+    include: { items: { include: { product: true } } },
+    take: 50,
+  });
 
-    const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
-    const staleCarts = await prisma.cart.findMany({
-      where: {
-        status: { in: ["ACTIVE", "LOCKED"] },
-        lastActivityAt: { lt: thirtyMinsAgo },
-        reminderSentAt: null,
-        items: { some: {} },
-      },
-      include: { items: { include: { product: true } } },
+  let sent = 0;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://shatrunjayghee.com";
+  for (const cart of carts) {
+    if (!cart.emailForRecovery) continue;
+    const itemList = cart.items.map((i) => `<li>${i.product.name} × ${i.quantity}</li>`).join("");
+    await sendEmail({
+      to: cart.emailForRecovery,
+      subject: "Your Shatrunjay Ghee cart is waiting",
+      html: `<p>Namaste ${cart.customerName || "there"},</p><p>You left pure Shatrunjay Ghee in your cart:</p><ul>${itemList}</ul><p><a href="${siteUrl}/checkout">Complete your order here</a>.</p>`,
+    }).catch(() => {});
+    await prisma.cart.update({
+      where: { id: cart.id },
+      data: { reminderSentAt: new Date(), status: "ABANDONED" },
     });
-
-    let emailsSent = 0;
-    for (const cart of staleCarts) {
-      await prisma.cart.update({
-        where: { id: cart.id },
-        data: { status: "ABANDONED", reminderSentAt: new Date() },
-      });
-
-      if (cart.emailForRecovery) {
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-        const recoverUrl = `${siteUrl}/api/cart/recover?token=${encodeURIComponent(cart.sessionToken)}`;
-        const itemLines = cart.items
-          .map((i) => `<li>${i.product.name} × ${i.quantity} (₹${i.product.priceInr * i.quantity})</li>`)
-          .join("");
-
-        await sendEmail({
-          to: cart.emailForRecovery,
-          subject: "You left pure Shatrunjay Ghee in your cart",
-          html: `
-            <h2>Hi ${cart.customerName || "there"},</h2>
-            <p>Your cart is waiting for you at Shatrunjay Ghee:</p>
-            <ul>${itemLines}</ul>
-            <p><a href="${recoverUrl}">Restore your cart & complete your order</a></p>
-          `,
-        });
-        emailsSent++;
-      }
-    }
-
-    return NextResponse.json({ ok: true, abandonedMarked: staleCarts.length, emailsSent });
-  } catch (err) {
-    console.error("Abandoned cart cron error:", err);
-    return NextResponse.json({ error: "Cron execution failed" }, { status: 500 });
+    sent++;
   }
+
+  return Response.json({ ok: true, sent });
 }

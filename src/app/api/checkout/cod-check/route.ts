@@ -1,34 +1,24 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const pincode = searchParams.get("pincode")?.trim() || "";
-
+  const url = new URL(req.url);
+  const pincode = (url.searchParams.get("pincode") ?? "").trim();
   if (!/^\d{6}$/.test(pincode)) {
-    return NextResponse.json({ error: "Enter a valid 6-digit Indian pincode." }, { status: 400 });
+    return Response.json({ detail: "Enter a valid 6-digit pincode" }, { status: 400 });
   }
 
-  const [codRecord, settings] = await Promise.all([
-    prisma.codPincode.findUnique({ where: { pincode } }),
-    prisma.siteSetting.findUnique({ where: { id: "default" } }),
-  ]);
+  const setting = await prisma.siteSetting.findUnique({ where: { id: "default" } });
+  const pinRow = await prisma.codPincode.findUnique({ where: { pincode } });
+  const isMumbai = pinRow ? pinRow.isMumbai : pincode.startsWith("400");
+  const codEnabledGlobal = setting?.codEnabled ?? true;
+  const codEligible = codEnabledGlobal && Boolean(pinRow?.isActive);
 
-  const codEligible = Boolean(codRecord && codRecord.isActive);
-  const isMumbai = codRecord ? codRecord.isMumbai : pincode.startsWith("400");
-
-  const deliveryEtaText = isMumbai
-    ? settings?.mumbaiDeliveryNote ||
-      "Deliveries in Mumbai will be done by Shatrunjay Team or Porter in 2 to 3 days."
-    : settings?.outsideMumbaiDeliveryNote ||
-      "Deliveries outside Mumbai will be done by courier in 5 to 7 working days.";
-
-  return NextResponse.json({
+  return Response.json({
     pincode,
     codEligible,
     isMumbai,
-    city: codRecord?.city || null,
-    state: codRecord?.state || null,
-    deliveryEtaText,
+    city: pinRow?.city ?? (isMumbai ? "Mumbai" : null),
+    state: pinRow?.state ?? (isMumbai ? "Maharashtra" : null),
+    etaText: isMumbai ? "2–3 days in Mumbai" : "5–7 working days outside Mumbai",
   });
 }
