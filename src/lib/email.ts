@@ -5,10 +5,7 @@ function getTransporter() {
   const port = Number(process.env.SMTP_PORT || 465);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    return null;
-  }
+  if (!host || !user || !pass) return null;
 
   return nodemailer.createTransport({
     host,
@@ -18,27 +15,14 @@ function getTransporter() {
   });
 }
 
-export async function sendEmail(params: {
-  to: string;
-  subject: string;
-  html: string;
-  replyTo?: string;
-}) {
+export async function sendEmail(params: { to: string; subject: string; html: string; replyTo?: string }) {
   const transporter = getTransporter();
   if (!transporter) {
-    console.warn("[Email skipped — SMTP credentials not configured in .env]", params.subject);
+    console.warn("[Email skipped — SMTP not configured in .env]", params.subject);
     return { skipped: true };
   }
-
   const from = process.env.SMTP_FROM || process.env.SMTP_USER || "info@shatrunjayghee.com";
-  await transporter.sendMail({
-    from,
-    to: params.to,
-    replyTo: params.replyTo,
-    subject: params.subject,
-    html: params.html,
-  });
-
+  await transporter.sendMail({ from, to: params.to, replyTo: params.replyTo, subject: params.subject, html: params.html });
   return { sent: true };
 }
 

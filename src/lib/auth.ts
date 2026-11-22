@@ -34,8 +34,10 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 }
 
 export interface SessionPayload {
-  sub: string;
+  sub?: string;
+  id?: string;
   email: string;
+  name?: string;
   role: "CUSTOMER" | "ADMIN";
   exp: number;
 }
@@ -43,6 +45,7 @@ export interface SessionPayload {
 export function signSessionToken(payload: Omit<SessionPayload, "exp">): string {
   const fullPayload: SessionPayload = {
     ...payload,
+    sub: payload.sub ?? payload.id,
     exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS,
   };
   const encoded = Buffer.from(JSON.stringify(fullPayload)).toString("base64url");
@@ -63,44 +66,52 @@ export function verifySessionToken(token: string | undefined): SessionPayload | 
   }
   try {
     const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SessionPayload;
-    if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
+    if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
+export async function setSessionCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: SESSION_TTL_SECONDS,
+  });
+}
+
+export async function clearSessionCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
 export async function getSessionUser() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const payload = verifySessionToken(token);
-  if (!payload) return null;
+  const userId = payload?.sub ?? payload?.id;
+  if (!userId) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
+  return prisma.user.findUnique({
+    where: { id: userId },
     select: { id: true, name: true, email: true, phone: true, role: true, referralCode: true },
   });
-  return user;
 }
 
 export async function requireUser() {
   const user = await getSessionUser();
-  if (!user) {
-    throw new AuthError("Authentication required", 401);
-  }
+  if (!user) throw new AuthError("Authentication required", 401);
   return user;
 }
 
 export async function requireAdmin() {
   const user = await getSessionUser();
-  if (!user) {
-    throw new AuthError("Authentication required", 401);
-  }
-  if (user.role !== "ADMIN") {
-    throw new AuthError("Forbidden: Admin access required", 403);
-  }
+  if (!user) throw new AuthError("Authentication required", 401);
+  if (user.role !== "ADMIN") throw new AuthError("Forbidden: Admin access required", 403);
   return user;
 }
 

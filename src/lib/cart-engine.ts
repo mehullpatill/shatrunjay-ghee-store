@@ -32,9 +32,9 @@ export async function getAvailableStock(
   const now = new Date();
   const product = await tx.product.findUnique({
     where: { id: productId },
-    select: { stockQty: true, isActive: true },
+    select: { stockQty: true, isActive: true, inStock: true },
   });
-  if (!product || !product.isActive) return 0;
+  if (!product || !product.isActive || !product.inStock) return 0;
 
   const activeLocks = await tx.cartLock.aggregate({
     where: {
@@ -45,57 +45,7 @@ export async function getAvailableStock(
     _sum: { quantity: true },
   });
 
-  const locked = activeLocks._sum.quantity ?? 0;
-  return Math.max(0, product.stockQty - locked);
-}
-
-export async function lockCartInventory(cartId: string) {
-  return prisma.$transaction(async (tx) => {
-    await releaseExpiredLocks(tx);
-
-    const cart = await tx.cart.findUnique({
-      where: { id: cartId },
-      include: { items: { include: { product: true }, orderBy: { productId: "asc" } } },
-    });
-
-    if (!cart || cart.items.length === 0) {
-      throw new Error("Your cart is empty.");
-    }
-
-    const expiresAt = new Date(Date.now() + CART_LOCK_MINUTES * 60 * 1000);
-
-    await tx.cartLock.deleteMany({ where: { cartId } });
-
-    for (const item of cart.items) {
-      await lockProductRow(tx, item.productId);
-      const available = await getAvailableStock(item.productId, cartId, tx);
-      if (available < item.quantity) {
-        throw new Error(
-          `Insufficient stock for ${item.product.name}. Only ${available} unit(s) available right now.`
-        );
-      }
-
-      await tx.cartLock.create({
-        data: {
-          cartId,
-          productId: item.productId,
-          quantity: item.quantity,
-          expiresAt,
-        },
-      });
-    }
-
-    const updatedCart = await tx.cart.update({
-      where: { id: cartId },
-      data: {
-        status: "LOCKED",
-        lockedUntil: expiresAt,
-        lastActivityAt: new Date(),
-      },
-    });
-
-    return { lockedUntil: updatedCart.lockedUntil, expiresAt };
-  });
+  return Math.max(0, product.stockQty - (activeLocks._sum.quantity ?? 0));
 }
 
 export async function computeDiscount(params: {
@@ -110,9 +60,7 @@ export async function computeDiscount(params: {
   const normalized = params.code.trim().toUpperCase();
   const now = new Date();
 
-  const discountRecord = await prisma.discountCode.findUnique({
-    where: { code: normalized },
-  });
+  const discountRecord = await prisma.discountCode.findUnique({ where: { code: normalized } });
 
   if (discountRecord && discountRecord.isActive) {
     if (discountRecord.expiresAt && discountRecord.expiresAt < now) {
@@ -138,19 +86,12 @@ export async function computeDiscount(params: {
       rawDiscount = Math.min(rawDiscount, discountRecord.maxDiscountInr);
     }
 
-    return {
-      discountInr: Math.min(rawDiscount, params.subtotalInr),
-      appliedCode: normalized,
-      reason: null,
-    };
+    return { discountInr: Math.min(rawDiscount, params.subtotalInr), appliedCode: normalized, reason: null };
   }
 
   const settings = await prisma.siteSetting.findUnique({ where: { id: "default" } });
   if (settings?.referralSystemEnabled) {
-    const referrer = await prisma.user.findUnique({
-      where: { referralCode: normalized },
-      select: { id: true },
-    });
+    const referrer = await prisma.user.findUnique({ where: { referralCode: normalized }, select: { id: true } });
     if (referrer) {
       if (params.userId && referrer.id === params.userId) {
         return { discountInr: 0, appliedCode: null, reason: "You cannot use your own referral code." };
@@ -159,16 +100,10 @@ export async function computeDiscount(params: {
         settings.referralDiscountType === "PERCENT"
           ? Math.floor((params.subtotalInr * settings.referralDiscountValue) / 100)
           : settings.referralDiscountValue;
-
       if (settings.referralMaxDiscountInr !== null) {
         rawDiscount = Math.min(rawDiscount, settings.referralMaxDiscountInr);
       }
-
-      return {
-        discountInr: Math.min(rawDiscount, params.subtotalInr),
-        appliedCode: normalized,
-        reason: null,
-      };
+      return { discountInr: Math.min(rawDiscount, params.subtotalInr), appliedCode: normalized, reason: null };
     }
   }
 
