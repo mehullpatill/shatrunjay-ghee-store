@@ -163,6 +163,11 @@ export default function CheckoutClient({
       return;
     }
 
+    if (paymentMethod === "RAZORPAY" && !window.Razorpay) {
+      setError("Payment gateway is still loading. Please wait a moment and try again.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/checkout/create", {
@@ -186,8 +191,8 @@ export default function CheckoutClient({
         currency?: string;
       };
 
-      if (!res.ok || !data.orderId) {
-        setError(data.error || "Failed to place order.");
+      if (!res.ok || (data.paymentMethod === "COD" && !data.orderId) || (data.paymentMethod === "RAZORPAY" && !data.razorpayOrderId)) {
+        setError(data.error || "Failed to prepare checkout.");
         setSubmitting(false);
         return;
       }
@@ -217,17 +222,17 @@ export default function CheckoutClient({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              orderId: data.orderId,
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
             }),
           });
-          if (verifyRes.ok) {
+          const verifyData = (await verifyRes.json()) as { orderId?: string; error?: string };
+          if (verifyRes.ok && verifyData.orderId) {
             clearCart();
-            router.push(`/account/orders/${data.orderId}?placed=1`);
+            router.push(`/account/orders/${verifyData.orderId}?placed=1`);
           } else {
-            setError("Payment verification failed. Please check your account orders.");
+            setError(verifyData.error || "Payment verification failed. Please contact support if money was deducted.");
             setSubmitting(false);
           }
         },
