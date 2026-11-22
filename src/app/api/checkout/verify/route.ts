@@ -15,7 +15,7 @@ const verifySchema = z.object({
 type IntentPayload = {
   userId: string;
   orderNumber: string;
-  address: { pincode: string };
+  address: { label: string; recipientName: string; phone: string; line1: string; line2?: string | null; city: string; state: string; pincode: string };
   isMumbai: boolean;
   deliveryEtaText: string;
   policyVersion: string;
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
 
       for (const item of payload.items) {
         const updated = await tx.productVariant.updateMany({
-          where: { id: item.variantId, active: true, stockQty: { gte: item.quantity }, product: { active: true } },
+          where: { id: item.variantId, active: true, stockQty: { gte: item.quantity }, product: { is: { active: true } } },
           data: { stockQty: { decrement: item.quantity } },
         });
         if (updated.count !== 1) throw new Error(`Stock is no longer available for ${item.productName} (${item.variantLabel}).`);
