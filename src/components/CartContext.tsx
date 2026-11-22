@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatRupees } from "@/lib/pricing";
 
@@ -35,6 +35,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItemClient[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     try {
@@ -57,6 +59,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // ignore quota errors
     }
   }, [items, hydrated]);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerOpen(false);
+      if (event.key === "Tab") {
+        const panel = document.getElementById("cart-drawer-panel");
+        const focusable = panel?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        if (!focusable?.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
+  }, [drawerOpen]);
 
   const syncWithServerAfterLogin = async () => {
     try {
@@ -147,13 +175,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
       {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-[1px]">
-          <div className="flex h-full w-full max-w-md flex-col bg-[#fffdf8] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-[1px]" onMouseDown={(e) => { if (e.target === e.currentTarget) setDrawerOpen(false); }}>
+          <div id="cart-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="cart-drawer-title" className="flex h-full w-full max-w-md flex-col bg-[#fffdf8] shadow-2xl">
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <h2 className="font-display text-lg font-bold text-kadhai">Your Cart ({totalCount})</h2>
+              <h2 id="cart-drawer-title" className="font-display text-lg font-bold text-kadhai">Your Cart ({totalCount})</h2>
               <button
+                ref={closeButtonRef}
                 type="button"
-                onClick={() => setDrawerOpen(false)}
+                onClick={() => setDrawerOpen(false)
                 aria-label="Close cart"
                 className="rounded-full p-2 text-muted hover:bg-butter hover:text-kadhai"
               >
