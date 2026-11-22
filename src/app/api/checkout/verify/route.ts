@@ -172,16 +172,20 @@ export async function POST(req: Request) {
     });
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://shatrunjay-ghee-store.vercel.app";
-    await emailService.sendOrderPlacedEmail({
-      toEmail: user.email,
-      name: user.name,
-      orderNumber: order.orderNumber,
-      totalPaise: order.totalPaise,
-      paymentMethod: "Razorpay (Paid)",
-      deliveryEtaText: order.deliveryEtaText,
-      isMumbai: order.isMumbai,
-      accountUrl: `${siteUrl}/account/orders/${order.id}`,
-    });
+    try {
+      await emailService.sendOrderPlacedEmail({
+        toEmail: user.email,
+        name: user.name,
+        orderNumber: order.orderNumber,
+        totalPaise: order.totalPaise,
+        paymentMethod: "Razorpay (Paid)",
+        deliveryEtaText: order.deliveryEtaText,
+        isMumbai: order.isMumbai,
+        accountUrl: `${siteUrl}/account/orders/${order.id}`,
+      });
+      } catch {
+      // Email delivery must never trigger a refund after a paid order has been created.
+    }
     return NextResponse.json({ ok: true, orderId: order.id, orderNumber: order.orderNumber });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not complete the paid order.";
