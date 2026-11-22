@@ -1,10 +1,13 @@
 "use client";
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCart } from "@/components/CartContext";
 
 function SignupForm() {
   const params = useSearchParams();
+  const router = useRouter();
+  const { syncWithServerAfterLogin } = useCart();
   const returnTo = params.get("returnTo") || "/checkout";
 
   const [name, setName] = useState("");
@@ -36,6 +39,22 @@ function SignupForm() {
       const data = (await res.json()) as { message?: string; error?: string };
       if (!res.ok) {
         setStatus({ error: data.error || "Could not create account." });
+      } else if (res.status === 201 && data.message?.includes("You can now log in")) {
+        // Email is not configured, so the account is already active. Sign the user in immediately.
+        const loginRes = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const loginData = (await loginRes.json()) as { error?: string; user?: { role: string } };
+        if (loginRes.ok) {
+          await syncWithServerAfterLogin();
+          const safeReturn = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/account";
+          router.replace(loginData.user?.role === "ADMIN" && safeReturn === "/account" ? "/admin" : safeReturn);
+          router.refresh();
+        } else {
+          setStatus({ ok: "Account created successfully. Please log in to continue." });
+        }
       } else {
         setStatus({ ok: data.message || "Account created! Check your email to verify." });
       }
@@ -50,7 +69,7 @@ function SignupForm() {
     <div className="mx-auto max-w-md px-4 py-14">
       <div className="rounded-3xl border border-line bg-white p-6 md:p-8">
         <h1 className="text-3xl font-extrabold text-kadhai">Sign Up</h1>
-        <p className="mt-1 text-sm text-muted">Create your Shatrunjay Ghee account. Email verification is required to place orders.</p>
+        <p className="mt-1 text-sm text-muted">Create your Shatrunjay Ghee account and get started.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block">
