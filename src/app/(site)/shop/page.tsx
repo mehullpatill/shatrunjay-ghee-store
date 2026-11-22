@@ -53,13 +53,10 @@ export default async function ShopAllPage({
           ? { mostBoughtOrder: "asc" }
           : sort === "fresh_arrivals"
           ? { freshArrivalOrder: "asc" }
-          : sort === "price_asc"
-          ? { variants: { _min: { pricePaise: "asc" } } }
-          : sort === "price_desc"
-          ? { variants: { _min: { pricePaise: "desc" } } }
           : { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
+      ...(sort === "price_asc" || sort === "price_desc"
+        ? {}
+        : { skip: (page - 1) * pageSize, take: pageSize }),
     }),
   ]);
 
@@ -79,6 +76,10 @@ export default async function ShopAllPage({
       };
     })
     .filter(Boolean) as ProductCardData[];
+
+  if (sort === "price_asc") cards = [...cards].sort((a, b) => a.defaultVariant.pricePaise - b.defaultVariant.pricePaise);
+  if (sort === "price_desc") cards = [...cards].sort((a, b) => b.defaultVariant.pricePaise - a.defaultVariant.pricePaise);
+  if (sort === "price_asc" || sort === "price_desc") cards = cards.slice((page - 1) * pageSize, page * pageSize);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
