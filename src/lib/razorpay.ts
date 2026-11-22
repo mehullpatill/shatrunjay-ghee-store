@@ -59,3 +59,13 @@ export function verifyRazorpayWebhookSignature(rawBody: string, signatureHeader:
     .digest("hex");
   return timingSafeEqualStr(expected, signatureHeader);
 }
+
+
+export async function fetchRazorpayPayment(paymentId: string): Promise<{ orderId: string; amount: number; currency: string; status: string }> {
+  const payment = await getRazorpayClient().payments.fetch(paymentId);
+  return { orderId: String(payment.order_id || ""), amount: Number(payment.amount), currency: String(payment.currency), status: String(payment.status) };
+}
+
+export async function refundRazorpayPayment(paymentId: string, amountPaise: number): Promise<void> {
+  await getRazorpayClient().payments.refund(paymentId, { amount: amountPaise });
+}
