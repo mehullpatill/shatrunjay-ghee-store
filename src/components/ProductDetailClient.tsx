@@ -103,6 +103,7 @@ export default function ProductDetailClient({
                 pricePaise: selected.pricePaise,
                 mrpPaise: selected.mrpPaise,
                 imageUrl: primaryImage,
+                stockQty: selected.stockQty,
               },
               qty
             )
