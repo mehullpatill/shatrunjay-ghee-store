@@ -13,6 +13,7 @@ export interface CartItemClient {
   mrpPaise: number;
   imageUrl: string;
   quantity: number;
+  stockQty?: number;
 }
 
 interface CartContextValue {
@@ -123,9 +124,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const existing = prev.find((i) => i.variantId === item.variantId);
       const next = existing
         ? prev.map((i) =>
-            i.variantId === item.variantId ? { ...i, quantity: Math.min(50, i.quantity + qty) } : i
+            i.variantId === item.variantId ? { ...i, quantity: Math.min(50, i.stockQty ?? 50, i.quantity + qty) } : i
           )
-        : [...prev, { ...item, quantity: Math.min(50, qty) }];
+        : [...prev, { ...item, quantity: Math.min(50, item.stockQty ?? 50, qty) }];
       pushReplaceToServer(next);
       return next;
     });
@@ -137,7 +138,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const next =
         qty <= 0
           ? prev.filter((i) => i.variantId !== variantId)
-          : prev.map((i) => (i.variantId === variantId ? { ...i, quantity: Math.min(50, qty) } : i));
+          : prev.map((i) => (i.variantId === variantId ? { ...i, quantity: Math.min(50, i.stockQty ?? 50, qty) } : i));
       pushReplaceToServer(next);
       return next;
     });
@@ -221,7 +222,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                             −
                           </button>
                           <span className="min-w-[1.2rem] text-center font-medium">{item.quantity}</span>
-                          <button type="button" onClick={() => updateQty(item.variantId, item.quantity + 1)} aria-label="Increase quantity">
+                          <button type="button" onClick={() => updateQty(item.variantId, item.quantity + 1)} disabled={item.stockQty !== undefined && item.quantity >= item.stockQty} aria-label="Increase quantity">
                             +
                           </button>
                         </div>
