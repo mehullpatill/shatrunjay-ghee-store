@@ -182,7 +182,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               <button
                 ref={closeButtonRef}
                 type="button"
-                onClick={() => setDrawerOpen(false)
+                onClick={() => setDrawerOpen(false)}
                 aria-label="Close cart"
                 className="rounded-full p-2 text-muted hover:bg-butter hover:text-kadhai"
               >
