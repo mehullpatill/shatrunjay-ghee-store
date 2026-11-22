@@ -1,5 +1,5 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { getEnv } from "./env";
+import { getEnv, requireEnvValue } from "./env";
 import { prisma } from "./prisma";
 import { formatRupees } from "./pricing";
 
@@ -9,10 +9,10 @@ function getSesClient(): SESClient {
   if (cachedSes) return cachedSes;
   const env = getEnv();
   cachedSes = new SESClient({
-    region: env.AWS_REGION,
+    region: requireEnvValue(env.AWS_REGION, "AWS_REGION"),
     credentials: {
-      accessKeyId: env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+      accessKeyId: requireEnvValue(env.AWS_ACCESS_KEY_ID, "AWS_ACCESS_KEY_ID"),
+      secretAccessKey: requireEnvValue(env.AWS_SECRET_ACCESS_KEY, "AWS_SECRET_ACCESS_KEY"),
     },
   });
   return cachedSes;
@@ -55,6 +55,11 @@ async function sendWithRetry(params: {
   templateName: string;
   replyTo?: string;
 }): Promise<void> {
+  const env = getEnv();
+  if (!env.AWS_REGION || !env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY || !env.SES_FROM_EMAIL) {
+    console.warn(`[emailService] Skipping ${params.templateName}: SES is not configured.`);
+    return;
+  }
   const log = await prisma.emailLog.create({
     data: {
       toEmail: params.toEmail,
@@ -68,7 +73,6 @@ async function sendWithRetry(params: {
   const maxAttempts = 2;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const env = getEnv();
       await getSesClient().send(
         new SendEmailCommand({
           Source: env.SES_FROM_EMAIL,
@@ -212,6 +216,10 @@ export const emailService = {
        <p><strong>Message:</strong></p>
        <blockquote style="background:#f5f4f1;padding:12px 16px;border-left:4px solid #8b0000;margin:0;">${escapeHtml(params.message)}</blockquote>`
     );
+    if (!env.SES_BUSINESS_INBOX_EMAIL) {
+      console.warn("[emailService] Skipping business inbox email: SES_BUSINESS_INBOX_EMAIL is not configured.");
+      return;
+    }
     await sendWithRetry({
       toEmail: env.SES_BUSINESS_INBOX_EMAIL,
       subject: params.subject,
