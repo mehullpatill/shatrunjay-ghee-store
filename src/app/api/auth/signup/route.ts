@@ -77,22 +77,41 @@ export async function POST(req: Request) {
     },
   });
 
-  const rawToken = generateOpaqueToken(32);
-  await prisma.verificationToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(rawToken),
-      type: "EMAIL_VERIFY",
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    },
-  });
+  const emailConfigured = Boolean(
+    process.env.AWS_REGION &&
+    process.env.AWS_ACCESS_KEY_ID &&
+    process.env.AWS_SECRET_ACCESS_KEY &&
+    process.env.SES_FROM_EMAIL
+  );
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const verifyUrl = `${siteUrl}/verify-email?token=${encodeURIComponent(rawToken)}`;
-  await emailService.sendVerificationEmail(user.email, user.name, verifyUrl);
+  if (emailConfigured) {
+    const rawToken = generateOpaqueToken(32);
+    await prisma.verificationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(rawToken),
+        type: "EMAIL_VERIFY",
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://shatrunjay-ghee-store.vercel.app";
+    const verifyUrl = `${siteUrl}/verify-email?token=${encodeURIComponent(rawToken)}`;
+    await emailService.sendVerificationEmail(user.email, user.name, verifyUrl);
+  } else {
+    // No email provider is configured: activate the account without email verification.
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date() },
+    });
+  }
 
   return NextResponse.json(
-    { message: "Account created! Please check your email to verify your address." },
+    {
+      message: emailConfigured
+        ? "Account created! Please check your email to verify your address."
+        : "Account created successfully! You can now log in and place orders.",
+    },
     { status: 201 }
   );
 }
