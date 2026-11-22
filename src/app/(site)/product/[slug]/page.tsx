@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductDetailClient from "@/components/ProductDetailClient";
+import ProductGalleryClient from "@/components/ProductGalleryClient";
 
 export async function generateMetadata({
   params,
@@ -45,20 +46,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </nav>
 
       <div className="grid gap-10 lg:grid-cols-2">
-        <div className="space-y-3">
-          <div className="aspect-square overflow-hidden rounded-3xl border border-line bg-butter p-8">
-            <img src={primaryImage} alt={product.name} className="pack h-full w-full object-contain" />
-          </div>
-          {product.images.length > 1 && (
-            <div className="grid grid-cols-4 gap-3">
-              {product.images.map((img) => (
-                <div key={img.id} className="aspect-square overflow-hidden rounded-2xl border border-line bg-butter p-2">
-                  <img src={img.url} alt={img.alt || product.name} className="h-full w-full object-cover rounded-xl" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ProductGalleryClient productName={product.name} images={product.images.map((img) => ({ id: img.id, url: img.url, alt: img.alt }))} fallbackImage={primaryImage} />
 
         <div>
           <span className="inline-block rounded-full bg-butter px-3 py-1 text-xs font-semibold text-label">
