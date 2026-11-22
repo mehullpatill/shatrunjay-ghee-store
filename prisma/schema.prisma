@@ -68,190 +68,66 @@ model User {
   orderQueries   OrderQuery[]
 }
 
-model SiteSetting {
-  id                        String   @id @default("default")
-  brandNameHindi            String   @default("शत्रुंजय")
-  brandNameEnglish          String   @default("Shatrunjay")
-  hindiLogoUrl              String?
-  englishLogoUrl            String?
-  whatsappNumber            String   @default("+91 81696 29908")
-  supportEmail              String   @default("info@shatrunjayghee.com")
-  storeAddress              String   @default("Mumbai, Maharashtra, India")
-  storeMapUrl               String   @default("https://maps.google.com/?q=Mumbai,India")
-  footerTaglineGujarati     String   @default("શુદ્ધ ઘી અને સમયસર ડિલિવરી એજ શત્રુંજય ઘી")
-  footerDescription         String   @default("Pure, lab-tested A2 Desi Cow Ghee, Cow Ghee, Buffalo Ghee & Cold-Pressed Groundnut Oil crafted with traditional care.")
-  copyrightText             String   @default("© 2026 Shatrunjay Ghee by Shatrunjay Foodstuffs Private Limited. All rights reserved.")
-  instagramUrl              String   @default("https://instagram.com")
-  linkedinUrl               String   @default("https://linkedin.com")
-  facebookUrl               String   @default("https://facebook.com")
-  youtubeUrl                String   @default("https://youtube.com")
-  googleReviewsTitle        String   @default("What do our customers say?")
-  googleReviewsSubtitle     String   @default("Verified Google Reviews from our patrons")
-  googleReviewsPlaceUrl     String?
-  referralSystemEnabled     Boolean  @default(false)
-  referralDiscountType      DiscountType @default(PERCENT)
-  referralDiscountValue     Int      @default(10)
-  referralMaxDiscountInr    Int?     @default(250)
-  productFreeDeliveryText   String   @default("Free Home Delivery")
-  productSafePackagingText  String   @default("Safe & Secure Packaging")
-  mumbaiDeliveryNote        String   @default("Deliveries in Mumbai will be done by Shatrunjay Team or Porter in 2 to 3 days. All communication will be done by Shatrunjay Team.")
-  outsideMumbaiDeliveryNote String   @default("Deliveries outside Mumbai will be done by courier in 5 to 7 working days and tracking details will be shared via email.")
-  orderConsentText          String   @default("By placing this order, I agree to the Terms of Service, Privacy Policy, Shipping Policy, and Refund Policy.")
-  navLinksJson              Json     @default("[]")
-  footerLinksJson           Json     @default("{}")
-  updatedAt                 DateTime @updatedAt
-}
-
-model MovingHeaderItem {
-  id            String   @id @default(cuid())
-  textWithEmoji String
-  linkUrl       String?
-  sortOrder     Int      @default(0)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-}
-
-model Banner {
+model OtpCode {
   id        String   @id @default(cuid())
-  pageKey   String
-  title     String
-  subtitle  String?
-  imageUrl  String?
-  ctaLabel  String?
-  ctaUrl    String?
-  sortOrder Int      @default(0)
-  isActive  Boolean  @default(true)
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  @@index([pageKey, isActive])
+  @@index([email, code])
 }
 
-model Category {
-  id          String    @id @default(cuid())
-  name        String
-  slug        String    @unique
-  description String?
-  imageUrl    String?
-  sortOrder   Int       @default(0)
-  isActive    Boolean   @default(true)
-  products    Product[]
+model SiteSetting {
+  id                        String       @id @default("default")
+  siteContentJson           Json         @default("{}")
+  shippingChargePaise       Int          @default(0)
+  minOrderAmountPaise       Int          @default(0)
+  codEnabled                Boolean      @default(true)
+  onlinePaymentEnabled      Boolean      @default(true)
+  otpRequired               Boolean      @default(true)
+  deliveryTimeText          String       @default("2–3 days in Mumbai; 5–7 working days outside Mumbai")
+  referralSystemEnabled     Boolean      @default(false)
+  referralDiscountType      DiscountType @default(PERCENT)
+  referralDiscountValue     Int          @default(10)
+  referralMaxDiscountInr    Int?         @default(250)
+  updatedAt                 DateTime     @updatedAt
 }
 
 model Product {
-  id               String     @id @default(cuid())
-  sku              String     @unique
-  name             String
-  slug             String     @unique
-  categoryId       String
-  category         Category   @relation(fields: [categoryId], references: [id])
-  priceInr         Int        @default(0)
-  mrpInr           Int?
-  volumeLabel      String?
-  shortDescription String?
-  description      String?
-  belowAmountNote  String?
-  imagesJson       Json       @default("[]")
-  stockQty         Int        @default(100)
-  isFeatured       Boolean    @default(false)
-  isMostBought     Boolean    @default(false)
-  isFreshArrival   Boolean    @default(false)
-  isActive         Boolean    @default(true)
-  sortOrder        Int        @default(0)
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  id             String      @id @default(cuid())
+  sku            String      @unique
+  name           String
+  slug           String      @unique
+  description    String      @default("")
+  pricePaise     Int         @default(0)
+  mrpPaise       Int?
+  imageUrl       String?
+  videoUrl       String?
+  inStock        Boolean     @default(true)
+  stockQty       Int         @default(100)
+  packLabel      String?
+  isFeatured     Boolean     @default(false)
+  isMostBought   Boolean     @default(false)
+  isFreshArrival Boolean     @default(false)
+  isActive       Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  cartItems        CartItem[]
-  cartLocks        CartLock[]
-  orderItems       OrderItem[]
-
-  @@index([categoryId, isActive])
-}
-
-model MakingProcessSection {
-  id         String   @id @default(cuid())
-  sectionKey String   @unique
-  title      String
-  subtitle   String?
-  videoUrl   String?
-  stepsJson  Json     @default("[]")
-  isActive   Boolean  @default(true)
-  updatedAt  DateTime @updatedAt
-}
-
-model WhyShatrunjayItem {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  iconName    String   @default("ShieldCheck")
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-}
-
-model CmsSection {
-  id         String   @id @default(cuid())
-  pageKey    String
-  sectionKey String
-  heading    String
-  subheading String?
-  content    String?
-  extraJson  Json     @default("{}")
-  sortOrder  Int      @default(0)
-  isActive   Boolean  @default(true)
-
-  @@unique([pageKey, sectionKey])
-}
-
-model ArchiveEntry {
-  id          String   @id @default(cuid())
-  archiveType String
-  title       String
-  location    String?
-  categoryTag String?
-  imageUrl    String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-
-  @@index([archiveType, isActive])
-}
-
-model LabReport {
-  id           String   @id @default(cuid())
-  batchNo      String
-  reportDate   DateTime
-  labName      String
-  fileUrl      String
-  thumbnailUrl String?
-  fileType     String   @default("PDF")
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-
-  @@index([reportDate(sort: Desc)])
-}
-
-model License {
-  id        String  @id @default(cuid())
-  name      String
-  number    String
-  sortOrder Int     @default(0)
-  isActive  Boolean @default(true)
-}
-
-model LegalPage {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  title     String
-  content   String
-  updatedAt DateTime @updatedAt
+  cartItems      CartItem[]
+  cartLocks      CartLock[]
+  orderItems     OrderItem[]
 }
 
 model CodPincode {
-  id        String  @id @default(cuid())
-  pincode   String  @unique
-  city      String?
-  state     String?
-  isMumbai  Boolean @default(false)
-  isActive  Boolean @default(true)
+  id       String  @id @default(cuid())
+  pincode  String  @unique
+  city     String?
+  state    String?
+  isMumbai Boolean @default(false)
+  isActive Boolean @default(true)
 }
 
 model DiscountCode {
@@ -268,15 +144,6 @@ model DiscountCode {
   isActive       Boolean      @default(true)
   expiresAt      DateTime?
   createdAt      DateTime     @default(now())
-}
-
-model InstagramReel {
-  id           String  @id @default(cuid())
-  title        String
-  thumbnailUrl String?
-  reelUrl      String
-  sortOrder    Int     @default(0)
-  isActive     Boolean @default(true)
 }
 
 model Cart {
@@ -301,13 +168,12 @@ model Cart {
 }
 
 model CartItem {
-  id           String  @id @default(cuid())
-  cartId       String
-  cart         Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity     Int
-  unitPriceInr Int
+  id         String  @id @default(cuid())
+  cartId     String
+  cart       Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity   Int
 
   @@unique([cartId, productId])
 }
@@ -329,6 +195,7 @@ model CartLock {
 model Order {
   id                  String        @id @default(cuid())
   orderNumber         String        @unique
+  channel             String        @default("WEB")
   userId              String?
   user                User?         @relation(fields: [userId], references: [id])
   cartId              String?
@@ -336,6 +203,7 @@ model Order {
   customerEmail       String
   customerPhone       String
   shippingAddress     String
+  area                String?
   city                String
   state               String
   pincode             String
@@ -364,6 +232,7 @@ model Order {
   queries             OrderQuery[]
 
   @@index([customerEmail])
+  @@index([customerPhone])
   @@index([createdAt(sort: Desc)])
 }
 
