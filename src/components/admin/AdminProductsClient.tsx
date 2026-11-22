@@ -133,7 +133,7 @@ export default function AdminProductsClient({
               <p className="text-sm font-bold text-kadhai">Product images</p>
               <p className="mt-1 text-xs text-muted">Add one image URL per line. The first image becomes the main product image.</p>
               <textarea rows={4} value={imageEditors[p.id] ?? p.images.map((img) => img.url).join("\n")} onChange={(e) => setImageEditors((prev) => ({ ...prev, [p.id]: e.target.value }))} placeholder="https://.../product-image.jpg" className="field mt-2 w-full" />
-              <button type="button" onClick={() => { const imageUrls = (imageEditors[p.id] ?? p.images.map((img) => img.url).join("\n")).split("\n").map((url) => url.trim()).filter(Boolean); callApi({ action: "upsert_product", id: p.id, categoryId: p.category.id, name: p.name, slug: p.slug, imageUrls }); }} className="btn mt-2 text-xs">Save product images</button>
+              <button type="button" onClick={() => { const imageUrls = (imageEditors[p.id] ?? p.images.map((img) => img.url).join("\n")).split("\n").map((url) => url.trim()).filter(Boolean); callApi({ action: "update_product_images", id: p.id, imageUrls }); }} className="btn mt-2 text-xs">Save product images</button>
             </div>
 
             <div className="mt-4 overflow-x-auto">
