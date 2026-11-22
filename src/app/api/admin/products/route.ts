@@ -34,6 +34,11 @@ const productActionSchema = z.discriminatedUnion("action", [
     imageUrls: z.array(z.string().min(1)).optional(),
   }),
   z.object({
+    action: z.literal("update_product_images"),
+    id: z.string().min(1),
+    imageUrls: z.array(z.string().url()).max(20),
+  }),
+  z.object({
     action: z.literal("upsert_variant"),
     id: z.string().optional(),
     productId: z.string().min(1),
@@ -95,6 +100,20 @@ export async function POST(req: Request) {
       revalidatePath("/");
       revalidatePath("/shop");
       return NextResponse.json({ category: cat });
+    }
+
+    if (data.action === "update_product_images") {
+      const product = await prisma.product.findUnique({ where: { id: data.id } });
+      if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      await prisma.$transaction(async (tx) => {
+        await tx.productImage.deleteMany({ where: { productId: product.id } });
+        if (data.imageUrls.length) {
+          await tx.productImage.createMany({ data: data.imageUrls.map((url, idx) => ({ productId: product.id, url, alt: product.name, sortOrder: idx })) });
+        }
+      });
+      await recordAuditLog({ actorId: admin.id, actorEmail: admin.email, action: "UPDATE_PRODUCT_IMAGES", entityType: "Product", entityId: product.id, afterSummary: { imageCount: data.imageUrls.length }, ip });
+      revalidatePath("/"); revalidatePath("/shop"); revalidatePath(`/product/${product.slug}`);
+      return NextResponse.json({ ok: true, imageCount: data.imageUrls.length });
     }
 
     if (data.action === "upsert_product") {
