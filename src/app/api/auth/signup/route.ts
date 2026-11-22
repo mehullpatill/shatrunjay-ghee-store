@@ -41,9 +41,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "If your email is new, a verification link has been sent." });
   }
 
-  const captchaOk = await verifyTurnstile(turnstileToken, ip);
-  if (!captchaOk) {
-    return NextResponse.json({ error: "Captcha verification failed." }, { status: 400 });
+  // CAPTCHA is optional until Turnstile is configured in the deployment.
+  // Once a secret key is present, enforce server-side verification.
+  if (process.env.TURNSTILE_SECRET_KEY) {
+    const captchaOk = await verifyTurnstile(turnstileToken, ip);
+    if (!captchaOk) {
+      return NextResponse.json({ error: "Captcha verification failed." }, { status: 400 });
+    }
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
