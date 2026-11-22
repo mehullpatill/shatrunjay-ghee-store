@@ -32,10 +32,23 @@ export async function POST(req: Request) {
   }
 
   const { email, password, totpCode } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+  }
+
+  const emailConfigured = Boolean(
+    process.env.AWS_REGION &&
+    process.env.AWS_ACCESS_KEY_ID &&
+    process.env.AWS_SECRET_ACCESS_KEY &&
+    process.env.SES_FROM_EMAIL
+  );
+  if (!emailConfigured && !user.emailVerifiedAt) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifiedAt: new Date() },
+    });
   }
 
   if (user.lockedUntil && user.lockedUntil > new Date()) {
