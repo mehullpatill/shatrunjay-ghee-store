@@ -60,6 +60,94 @@ export async function POST(req: Request) {
     );
   }
 
+  // Online checkout: create only a Razorpay gateway order here. Do not create a store order
+  // or reserve stock/coupon usage until Razorpay confirms a captured payment.
+  if (paymentMethod === "RAZORPAY") {
+    const mergedItems = Array.from(
+      items.reduce((map, item) => map.set(item.variantId, (map.get(item.variantId) || 0) + item.quantity), new Map<string, number>()),
+      ([variantId, quantity]) => ({ variantId, quantity })
+    );
+    const variants = await prisma.productVariant.findMany({
+      where: { id: { in: mergedItems.map((i) => i.variantId) }, active: true },
+      include: { product: true },
+    });
+    const variantMap = new Map(variants.map((v) => [v.id, v]));
+    const orderItemsData = [];
+    let subtotalPaise = 0;
+    for (const item of mergedItems) {
+      const variant = variantMap.get(item.variantId);
+      if (!variant || !variant.product.active) {
+        return NextResponse.json({ error: "One or more items in your cart are unavailable." }, { status: 400 });
+      }
+      if (variant.stockQty < item.quantity) {
+        return NextResponse.json({ error: `Only ${variant.stockQty} units of ${variant.product.name} (${variant.label}) are available.` }, { status: 409 });
+      }
+      const lineTotalPaise = variant.pricePaise * item.quantity;
+      subtotalPaise += lineTotalPaise;
+      orderItemsData.push({
+        productId: variant.productId,
+        variantId: variant.id,
+        productName: variant.product.name,
+        variantLabel: variant.label,
+        sku: variant.sku,
+        unitPricePaise: variant.pricePaise,
+        quantity: item.quantity,
+        lineTotalPaise,
+      });
+    }
+
+    const discountRes = await resolveAndValidateDiscount({ code: discountCode, subtotalPaise, userId: user.id });
+    if (discountCode && discountRes.error) {
+      return NextResponse.json({ error: discountRes.error }, { status: 400 });
+    }
+    const totalPaise = discountRes.totalPaise;
+    if (totalPaise <= 0) {
+      return NextResponse.json({ error: "Online payment amount must be greater than zero." }, { status: 400 });
+    }
+    const orderNumber = generateOrderNumber();
+    const rzpOrder = await createRazorpayOrder({
+      amountPaise: totalPaise,
+      receipt: orderNumber,
+      notes: { userId: user.id, orderNumber },
+    });
+    const intentPayload = {
+      userId: user.id,
+      orderNumber,
+      address,
+      isMumbai,
+      deliveryEtaText: getDeliveryEta(isMumbai),
+      policyVersion: settings.policyVersion,
+      subtotalPaise,
+      discountPaise: discountRes.discountPaise,
+      shippingFeePaise: 0,
+      totalPaise,
+      appliedCode: discountRes.candidate?.code ?? null,
+      discountKind: discountRes.candidate?.kind ?? null,
+      discountCandidate: discountRes.candidate,
+      items: orderItemsData,
+      state: "PENDING",
+    };
+    try {
+      await prisma.paymentWebhookEvent.create({
+        data: {
+          providerEventId: `checkout:${rzpOrder.id}`,
+          eventType: "CHECKOUT_INTENT_PENDING",
+          payload: intentPayload,
+        },
+      });
+    } catch (error) {
+      // If the intent cannot be persisted, do not leave a usable gateway order behind.
+      throw new Error("Could not prepare checkout securely. Please try again.");
+    }
+    return NextResponse.json({
+      paymentMethod: "RAZORPAY",
+      razorpayOrderId: rzpOrder.id,
+      amountPaise: rzpOrder.amount,
+      currency: rzpOrder.currency,
+      orderNumber,
+    });
+  }
+
   // Recompute subtotal & check stock inside DB transaction
   const orderResult = await prisma.$transaction(async (tx) => {
     const variantIds = items.map((i) => i.variantId);
