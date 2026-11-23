@@ -2,6 +2,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+interface ProcessStepDraft {
+  heading: string;
+  subheading: string;
+  imageUrl: string;
+  imageS3Key: string;
+}
+
+interface ProcessDraft {
+  title: string;
+  subtitle: string;
+  videoUrl: string;
+  steps: ProcessStepDraft[];
+}
+
 export default function AdminCmsClient({
   sections,
   processBlocks,
@@ -10,13 +24,24 @@ export default function AdminCmsClient({
   reels,
 }: {
   sections: Array<{ id: string; pageKey: string; sectionKey: string; heading: string; subheading: string | null; content: string | null }>;
-  processBlocks: Array<{ id: string; key: string; title: string; subtitle: string | null; videoUrl: string | null; steps: Array<{ id: string; stepOrder: number; heading: string; subheading: string | null }> }>;
+  processBlocks: Array<{ id: string; key: string; title: string; subtitle: string | null; videoUrl: string | null; steps: Array<{ id: string; stepOrder: number; heading: string; subheading: string | null; imageUrl: string | null; imageS3Key: string | null }> }>;
   licenses: Array<{ id: string; name: string; number: string }>;
   archives: Array<{ id: string; sectionKey: string; name: string; location: string | null; imageUrl: string }>;
   reels: Array<{ id: string; title: string | null; thumbnailUrl: string; reelUrl: string }>;
 }) {
   const router = useRouter();
   const [msg, setMsg] = useState("");
+  const [processDrafts, setProcessDrafts] = useState<Record<string, ProcessDraft>>(() => Object.fromEntries(processBlocks.map((pb) => [
+    pb.key,
+    {
+      title: pb.title,
+      subtitle: pb.subtitle || "",
+      videoUrl: pb.videoUrl || "",
+      steps: pb.steps.map((step) => ({ heading: step.heading, subheading: step.subheading || "", imageUrl: step.imageUrl || "", imageS3Key: step.imageS3Key || "" })),
+    },
+  ])));
+  const [processImageFiles, setProcessImageFiles] = useState<Record<string, File | null>>({});
+  const [savingProcessKey, setSavingProcessKey] = useState<string | null>(null);
 
   // Section editor
   const [selectedSectionId, setSelectedSectionId] = useState(sections[0]?.id || "");
@@ -50,6 +75,41 @@ export default function AdminCmsClient({
     const d = (await res.json()) as { error?: string };
     setMsg(res.ok ? "CMS updated." : d.error || "Failed");
     router.refresh();
+  };
+
+  const uploadProcessImage = async (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const presignRes = await fetch("/api/upload/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder: "process", kind: "image", mime: file.type || "image/jpeg", ext, sizeBytes: file.size }),
+    });
+    const presign = (await presignRes.json()) as { uploadUrl?: string; publicUrl?: string; s3Key?: string; error?: string };
+    if (!presignRes.ok || !presign.uploadUrl || !presign.publicUrl) throw new Error(presign.error || "Could not prepare process image upload");
+    const putRes = await fetch(presign.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "image/jpeg" }, body: file });
+    if (!putRes.ok) throw new Error(`Image upload failed for ${file.name}`);
+    return { imageUrl: presign.publicUrl, imageS3Key: presign.s3Key || "" };
+  };
+
+  const saveProcess = async (key: string) => {
+    const draft = processDrafts[key];
+    if (!draft) return;
+    setSavingProcessKey(key);
+    setMsg("");
+    try {
+      const steps = [...draft.steps];
+      for (let index = 0; index < steps.length; index += 1) {
+        const file = processImageFiles[`${key}:${index}`];
+        const existingStep = steps[index];
+        if (file && existingStep) steps[index] = { ...existingStep, ...(await uploadProcessImage(file)) };
+      }
+      await postCms({ action: "upsert_process_block", key, title: draft.title, subtitle: draft.subtitle, videoUrl: draft.videoUrl, steps });
+      setProcessDrafts((prev) => ({ ...prev, [key]: { ...draft, steps } }));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Could not save process block");
+    } finally {
+      setSavingProcessKey(null);
+    }
   };
 
   return (
@@ -104,11 +164,40 @@ export default function AdminCmsClient({
 
       {/* Process Blocks (Max 9 Steps) */}
       <div className="panel p-6 space-y-4">
-        <h2 className="text-lg font-bold text-kadhai">Making Process Blocks (Max 9 Steps)</h2>
+        <h2 className="text-lg font-bold text-kadhai">Making Process Blocks &amp; Photos (Max 9 Steps)</h2>
         {processBlocks.map((pb) => (
-          <div key={pb.id} className="rounded-xl border border-line p-4 text-sm">
-            <p className="font-bold text-kadhai">{pb.title} <span className="font-mono text-xs text-muted">({pb.key})</span></p>
-            <p className="text-xs text-muted">Steps: {pb.steps.length} / 9 • Video: {pb.videoUrl || "Default image"}</p>
+          <div key={pb.id} className="rounded-xl border border-line p-4 text-sm space-y-3">
+            {(() => {
+              const draft = processDrafts[pb.key];
+              if (!draft) return null;
+              return (
+                <>
+                  <p className="font-bold text-kadhai">{pb.key}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input value={draft.title} onChange={(e) => setProcessDrafts((prev) => ({ ...prev, [pb.key]: { ...draft, title: e.target.value } }))} placeholder="Process title" className="field" />
+                    <input value={draft.videoUrl} onChange={(e) => setProcessDrafts((prev) => ({ ...prev, [pb.key]: { ...draft, videoUrl: e.target.value } }))} placeholder="Optional process video URL" className="field" />
+                  </div>
+                  <textarea rows={2} value={draft.subtitle} onChange={(e) => setProcessDrafts((prev) => ({ ...prev, [pb.key]: { ...draft, subtitle: e.target.value } }))} placeholder="Process subtitle" className="field" />
+                  <div className="space-y-3">
+                    {draft.steps.map((step, index) => (
+                      <div key={`${pb.key}-${index}`} className="rounded-lg border border-line bg-butter p-3">
+                        <p className="mb-2 text-xs font-bold text-kadhai">Step {index + 1}</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <input value={step.heading} onChange={(e) => setProcessDrafts((prev) => ({ ...prev, [pb.key]: { ...draft, steps: draft.steps.map((item, i) => i === index ? { ...item, heading: e.target.value } : item) } }))} placeholder="Step heading" className="field" />
+                          <input value={step.subheading} onChange={(e) => setProcessDrafts((prev) => ({ ...prev, [pb.key]: { ...draft, steps: draft.steps.map((item, i) => i === index ? { ...item, subheading: e.target.value } : item) } }))} placeholder="Step description" className="field" />
+                          <input value={step.imageUrl} onChange={(e) => setProcessDrafts((prev) => ({ ...prev, [pb.key]: { ...draft, steps: draft.steps.map((item, i) => i === index ? { ...item, imageUrl: e.target.value } : item) } }))} placeholder="Photo URL (optional)" className="field" />
+                          <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={(e) => setProcessImageFiles((prev) => ({ ...prev, [`${pb.key}:${index}`]: e.target.files?.[0] || null }))} className="field" />
+                        </div>
+                        {(step.imageUrl || processImageFiles[`${pb.key}:${index}`]) && <p className="mt-2 text-xs text-muted">{processImageFiles[`${pb.key}:${index}`]?.name || step.imageUrl}</p>}
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" onClick={() => saveProcess(pb.key)} disabled={savingProcessKey === pb.key} className="btn text-xs">
+                    {savingProcessKey === pb.key ? "Uploading & saving..." : "Save process and photos"}
+                  </button>
+                </>
+              );
+            })()}
           </div>
         ))}
       </div>

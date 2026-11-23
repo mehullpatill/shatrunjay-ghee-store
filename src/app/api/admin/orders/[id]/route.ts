@@ -16,6 +16,9 @@ const updateOrderSchema = z.object({
   courierImageKey: z.string().trim().max(300).optional().nullable(),
   cancelOrRefundNote: z.string().trim().max(500).optional().nullable(),
   historyNote: z.string().trim().max(400).optional().nullable(),
+  shipmentStatus: z.enum(["PENDING", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "RETURNED"]).optional(),
+  trackingUrl: z.string().url().max(500).optional().nullable(),
+  shipmentNotes: z.string().trim().max(500).optional().nullable(),
 });
 
 export async function PATCH(
@@ -72,6 +75,15 @@ export async function PATCH(
         changedByUserId: admin.id,
       },
     });
+
+    if (d.shipmentStatus || d.trackingUrl !== undefined || d.shipmentNotes !== undefined || d.courierName !== undefined || d.trackingNumber !== undefined) {
+      const shipment = await tx.shipment.upsert({
+        where: { orderId: order.id },
+        create: { orderId: order.id, status: d.shipmentStatus || "PENDING", courierName: d.courierName || null, trackingNumber: d.trackingNumber || null, trackingUrl: d.trackingUrl || null, notes: d.shipmentNotes || null, shippedAt: d.shipmentStatus === "SHIPPED" ? new Date() : null, deliveredAt: d.shipmentStatus === "DELIVERED" ? new Date() : null },
+        update: { status: d.shipmentStatus, courierName: d.courierName !== undefined ? d.courierName : undefined, trackingNumber: d.trackingNumber !== undefined ? d.trackingNumber : undefined, trackingUrl: d.trackingUrl !== undefined ? d.trackingUrl : undefined, notes: d.shipmentNotes !== undefined ? d.shipmentNotes : undefined, shippedAt: d.shipmentStatus === "SHIPPED" ? new Date() : undefined, deliveredAt: d.shipmentStatus === "DELIVERED" ? new Date() : undefined },
+      });
+      if (d.shipmentStatus) await tx.shipmentEvent.create({ data: { shipmentId: shipment.id, status: d.shipmentStatus, note: d.shipmentNotes || d.historyNote || null } });
+    }
 
     return order;
   });

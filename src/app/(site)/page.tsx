@@ -220,10 +220,17 @@ export default async function HomePage() {
             <ol className="mt-7 grid gap-3 sm:grid-cols-2">
               {(gheeProcess?.steps ?? []).slice(0, 9).map((step) => (
                 <li key={step.id} className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/5 px-4 py-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ghee text-sm font-bold text-ghee">
-                    {step.stepOrder}
+                  {step.imageUrl ? (
+                    <img src={step.imageUrl} alt={step.heading} loading="lazy" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ghee text-sm font-bold text-ghee">
+                      {step.stepOrder}
+                    </span>
+                  )}
+                  <span>
+                    <span className="block text-sm font-semibold text-white">{step.heading}</span>
+                    {step.subheading && <span className="mt-0.5 block text-xs text-white/65">{step.subheading}</span>}
                   </span>
-                  <span className="text-sm font-semibold text-white">{step.heading}</span>
                 </li>
               ))}
             </ol>

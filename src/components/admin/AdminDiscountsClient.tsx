@@ -18,6 +18,11 @@ export default function AdminDiscountsClient({
   const [discountType, setDiscountType] = useState<"PERCENT" | "FIXED">("PERCENT");
   const [value, setValue] = useState("10");
   const [maxCapRupees, setMaxCapRupees] = useState("");
+  const [minOrderRupees, setMinOrderRupees] = useState("");
+  const [perUserLimit, setPerUserLimit] = useState("1");
+  const [totalUsageLimit, setTotalUsageLimit] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   const [msg, setMsg] = useState("");
 
   const createCode = async (e: React.FormEvent) => {
@@ -35,6 +40,11 @@ export default function AdminDiscountsClient({
         discountType,
         discountValue,
         maxDiscountPaise,
+        minOrderPaise: Math.round(Number(minOrderRupees || 0) * 100),
+        perUserLimit: Number(perUserLimit),
+        totalUsageLimit: totalUsageLimit ? Number(totalUsageLimit) : null,
+        startsAt: startsAt ? new Date(startsAt).toISOString() : null,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
       }),
     });
     const d = (await res.json()) as { error?: string };
@@ -79,6 +89,11 @@ export default function AdminDiscountsClient({
           </select>
           <input type="number" required min="1" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value (% or ₹)" className="field" />
           <input type="number" min="0" value={maxCapRupees} onChange={(e) => setMaxCapRupees(e.target.value)} placeholder="Max cap ₹ (optional)" className="field" />
+          <input type="number" min="0" value={minOrderRupees} onChange={(e) => setMinOrderRupees(e.target.value)} placeholder="Min order ₹" className="field" />
+          <input type="number" min="1" value={perUserLimit} onChange={(e) => setPerUserLimit(e.target.value)} placeholder="Per-user uses" className="field" />
+          <input type="number" min="1" value={totalUsageLimit} onChange={(e) => setTotalUsageLimit(e.target.value)} placeholder="Total uses" className="field" />
+          <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="field" />
+          <input type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="field" />
         </div>
         <button type="submit" className="btn">Create Code</button>
       </form>

@@ -83,6 +83,8 @@ export const processStepArraySchema = z
     z.object({
       heading: z.string().trim().min(1).max(150),
       subheading: z.string().trim().max(400).optional().nullable(),
+      imageUrl: z.string().max(500).optional().nullable(),
+      imageS3Key: z.string().max(300).optional().nullable(),
     })
   )
   .max(9, "Maximum 9 steps allowed per process block");

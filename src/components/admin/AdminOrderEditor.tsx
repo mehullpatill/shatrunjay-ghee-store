@@ -13,6 +13,7 @@ export default function AdminOrderEditor({
     trackingNumber: string | null;
     courierImageUrl: string | null;
     cancelOrRefundNote: string | null;
+    shipment: { status: string; courierName: string | null; trackingNumber: string | null; trackingUrl: string | null; notes: string | null } | null;
   };
 }) {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function AdminOrderEditor({
   const [note, setNote] = useState(order.cancelOrRefundNote || "");
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [shipmentStatus, setShipmentStatus] = useState(order.shipment?.status || "PENDING");
+  const [trackingUrl, setTrackingUrl] = useState(order.shipment?.trackingUrl || "");
+  const [shipmentNotes, setShipmentNotes] = useState(order.shipment?.notes || "");
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +43,9 @@ export default function AdminOrderEditor({
         trackingNumber: trackingNumber || null,
         courierImageUrl: courierImageUrl || null,
         cancelOrRefundNote: note || null,
+        shipmentStatus,
+        trackingUrl: trackingUrl || null,
+        shipmentNotes: shipmentNotes || null,
       }),
     });
     const d = (await res.json()) as { error?: string };
@@ -80,6 +87,14 @@ export default function AdminOrderEditor({
         <span className="lbl">Courier Receipt Image URL (S3)</span>
         <input type="url" value={courierImageUrl} onChange={(e) => setCourierImageUrl(e.target.value)} className="field" placeholder="https://..." />
       </label>
+      <div className="border-t border-line pt-4 space-y-3">
+        <h3 className="font-bold text-kadhai">Shipment Tracking</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block"><span className="lbl">Shipment Status</span><select value={shipmentStatus} onChange={(e) => setShipmentStatus(e.target.value)} className="field">{["PENDING", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED", "RETURNED"].map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+          <label className="block"><span className="lbl">Tracking URL</span><input type="url" value={trackingUrl} onChange={(e) => setTrackingUrl(e.target.value)} className="field" placeholder="https://courier.example/track/..." /></label>
+        </div>
+        <label className="block"><span className="lbl">Shipment Note</span><input value={shipmentNotes} onChange={(e) => setShipmentNotes(e.target.value)} className="field" placeholder="Dispatch or delivery note" /></label>
+      </div>
       <label className="block">
         <span className="lbl">Note / Cancel or Refund Reason</span>
         <input type="text" value={note} onChange={(e) => setNote(e.target.value)} className="field" />

@@ -18,6 +18,7 @@ export default async function AdminOrderDetailPage({
       user: { select: { name: true, email: true, phone: true } },
       items: true,
       statusHistory: { orderBy: { createdAt: "desc" } },
+      shipment: { include: { events: { orderBy: { createdAt: "desc" } } } },
     },
   });
 
@@ -78,6 +79,7 @@ export default async function AdminOrderDetailPage({
           trackingNumber: order.trackingNumber,
           courierImageUrl: order.courierImageUrl,
           cancelOrRefundNote: order.cancelOrRefundNote,
+          shipment: order.shipment,
         }}
       />
     </div>

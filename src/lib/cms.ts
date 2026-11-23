@@ -1,6 +1,11 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "./prisma";
 
+export interface FooterLink {
+  label: string;
+  href: string;
+}
+
 export interface SiteSettingsMap {
   whatsappEnabled: boolean;
   whatsappNumber: string;
@@ -28,6 +33,20 @@ export interface SiteSettingsMap {
     facebook: string;
     youtube: string;
   };
+  footerBrandName: string;
+  footerLogoUrl: string;
+  footerTagline: string;
+  footerDescription: string;
+  footerShopLinks: FooterLink[];
+  footerDerasarLinks: FooterLink[];
+  footerWholesaleLinks: FooterLink[];
+  footerLegalLinks: FooterLink[];
+  footerShopHeading: string;
+  footerDerasarHeading: string;
+  footerWholesaleHeading: string;
+  footerContactHeading: string;
+  footerCopyrightText: string;
+  footerComplianceText: string;
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettingsMap = {
@@ -61,6 +80,45 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsMap = {
     facebook: "https://www.facebook.com/share/1DSKgP2jVJ/",
     youtube: "https://youtube.com/@shatrunjayghee",
   },
+  footerBrandName: "Shatrunjay",
+  footerLogoUrl: "/brand/logo.png",
+  footerTagline: "શુદ્ધ ઘી અને સમયસર ડિલિવરી એજ શત્રુંજય ઘી",
+  footerDescription: "Pure Cow Ghee, Buffalo Ghee, and Bilona A2 Desi Cow Ghee crafted in small batches by Shatrunjay Foodstuffs Private Limited.",
+  footerShopLinks: [
+    { label: "All Products", href: "/shop" },
+    { label: "Cow Ghee", href: "/ghee#cow-ghee" },
+    { label: "Buffalo Ghee", href: "/ghee#buffalo-ghee" },
+    { label: "A2 Desi Cow Ghee", href: "/ghee#a2-desi-cow-ghee" },
+    { label: "Groundnut Oil", href: "/groundnut-oil" },
+  ],
+  footerDerasarLinks: [
+    { label: "Jinalay", href: "/derasar#jinalay" },
+    { label: "Bhojanshala", href: "/derasar#bhojanshala" },
+    { label: "Pratishtha Mahostav", href: "/derasar#pratishtha_mahostav" },
+    { label: "Chaturmas", href: "/derasar#chaturmas" },
+    { label: "Varshitap", href: "/derasar#varshitap" },
+    { label: "Navanu Yatra", href: "/derasar#navanu_yatra" },
+    { label: "Ghee Laabh Yojna", href: "/ghee-laabh-yojna" },
+    { label: "Other Religious Functions", href: "/derasar#other_religious_functions" },
+  ],
+  footerWholesaleLinks: [
+    { label: "Temples", href: "/wholesale#temples" },
+    { label: "Social Events", href: "/wholesale#social_events" },
+    { label: "Restaurants & Clubs", href: "/wholesale#restaurants_clubs" },
+    { label: "Reseller", href: "/wholesale#reseller" },
+  ],
+  footerLegalLinks: [
+    { label: "Privacy Policy", href: "/legal/privacy-policy" },
+    { label: "Shipping Policy", href: "/legal/shipping-policy" },
+    { label: "Refund Policy", href: "/legal/refund-policy" },
+    { label: "Terms of Service", href: "/legal/terms-of-service" },
+  ],
+  footerShopHeading: "Shop",
+  footerDerasarHeading: "Derasar",
+  footerWholesaleHeading: "Wholesale & Legal",
+  footerContactHeading: "Talk to us",
+  footerCopyrightText: "© 2026 Shatrunjay Ghee by Shatrunjay Foodstuffs Private Limited. All rights reserved.",
+  footerComplianceText: "",
 };
 
 export const getSiteSettings = unstable_cache(
@@ -89,6 +147,20 @@ export const getSiteSettings = unstable_cache(
           (map.get("contactInfo") as SiteSettingsMap["contactInfo"]) ?? DEFAULT_SITE_SETTINGS.contactInfo,
         socialLinks:
           (map.get("socialLinks") as SiteSettingsMap["socialLinks"]) ?? DEFAULT_SITE_SETTINGS.socialLinks,
+        footerBrandName: (map.get("footerBrandName") as string) ?? DEFAULT_SITE_SETTINGS.footerBrandName,
+        footerLogoUrl: (map.get("footerLogoUrl") as string) ?? DEFAULT_SITE_SETTINGS.footerLogoUrl,
+        footerTagline: (map.get("footerTagline") as string) ?? DEFAULT_SITE_SETTINGS.footerTagline,
+        footerDescription: (map.get("footerDescription") as string) ?? DEFAULT_SITE_SETTINGS.footerDescription,
+        footerShopLinks: (map.get("footerShopLinks") as FooterLink[]) ?? DEFAULT_SITE_SETTINGS.footerShopLinks,
+        footerDerasarLinks: (map.get("footerDerasarLinks") as FooterLink[]) ?? DEFAULT_SITE_SETTINGS.footerDerasarLinks,
+        footerWholesaleLinks: (map.get("footerWholesaleLinks") as FooterLink[]) ?? DEFAULT_SITE_SETTINGS.footerWholesaleLinks,
+        footerLegalLinks: (map.get("footerLegalLinks") as FooterLink[]) ?? DEFAULT_SITE_SETTINGS.footerLegalLinks,
+        footerShopHeading: (map.get("footerShopHeading") as string) ?? DEFAULT_SITE_SETTINGS.footerShopHeading,
+        footerDerasarHeading: (map.get("footerDerasarHeading") as string) ?? DEFAULT_SITE_SETTINGS.footerDerasarHeading,
+        footerWholesaleHeading: (map.get("footerWholesaleHeading") as string) ?? DEFAULT_SITE_SETTINGS.footerWholesaleHeading,
+        footerContactHeading: (map.get("footerContactHeading") as string) ?? DEFAULT_SITE_SETTINGS.footerContactHeading,
+        footerCopyrightText: (map.get("footerCopyrightText") as string) ?? DEFAULT_SITE_SETTINGS.footerCopyrightText,
+        footerComplianceText: (map.get("footerComplianceText") as string) ?? DEFAULT_SITE_SETTINGS.footerComplianceText,
       };
     } catch {
       return DEFAULT_SITE_SETTINGS;

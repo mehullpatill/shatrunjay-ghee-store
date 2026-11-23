@@ -133,6 +133,8 @@ export async function POST(req: Request) {
             stepOrder: idx + 1,
             heading: s.heading,
             subheading: s.subheading || null,
+            imageUrl: s.imageUrl || null,
+            imageS3Key: s.imageS3Key || null,
           })),
         });
       }

@@ -32,6 +32,14 @@ const productActionSchema = z.discriminatedUnion("action", [
     freshArrivalOrder: z.number().int().default(0),
     active: z.boolean().default(true),
     imageUrls: z.array(z.string().min(1)).optional(),
+    variants: z.array(z.object({
+      label: z.string().trim().min(1).max(80),
+      sku: z.string().trim().max(64).optional().nullable(),
+      pricePaise: z.number().int().positive(),
+      mrpPaise: z.number().int().positive(),
+      stockQty: z.number().int().min(0),
+      active: z.boolean().default(true),
+    })).max(50).optional(),
   }),
   z.object({
     action: z.literal("update_product_images"),
@@ -161,6 +169,22 @@ export async function POST(req: Request) {
             url,
             alt: product.name,
             sortOrder: idx,
+          })),
+        });
+      }
+
+      if (!data.id && data.variants?.length) {
+        await prisma.productVariant.createMany({
+          data: data.variants.map((variant, idx) => ({
+            productId: product.id,
+            label: variant.label,
+            sku: variant.sku && variant.sku.trim() ? variant.sku.trim() : null,
+            pricePaise: variant.pricePaise,
+            mrpPaise: variant.mrpPaise,
+            stockQty: variant.stockQty,
+            isPlaceholderPrice: false,
+            sortOrder: idx,
+            active: variant.active,
           })),
         });
       }

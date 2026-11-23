@@ -5,7 +5,7 @@ import { createPresignedUploadUrl } from "@/lib/s3";
 import { assertSameOrigin } from "@/lib/security";
 
 const presignSchema = z.object({
-  folder: z.enum(["products", "banners", "videos", "lab-reports", "archives", "couriers", "reels"]),
+  folder: z.enum(["products", "banners", "videos", "process", "lab-reports", "archives", "couriers", "reels"]),
   kind: z.enum(["image", "video", "lab_report"]),
   mime: z.string().min(3).max(100),
   ext: z.string().min(2).max(10),

@@ -3,10 +3,11 @@ import type { NextConfig } from "next";
 const s3Host = process.env.S3_PUBLIC_BASE_URL
   ? new URL(process.env.S3_PUBLIC_BASE_URL).hostname
   : "*.amazonaws.com";
+const devScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://challenges.cloudflare.com",
+  `script-src 'self' 'unsafe-inline'${devScriptPolicy} https://checkout.razorpay.com https://challenges.cloudflare.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   `img-src 'self' data: blob: https://${s3Host} https://lh3.googleusercontent.com https://maps.gstatic.com`,

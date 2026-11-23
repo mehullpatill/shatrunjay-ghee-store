@@ -22,6 +22,20 @@ const ALLOWED_KEYS = [
   "policyVersion",
   "contactInfo",
   "socialLinks",
+  "footerBrandName",
+  "footerLogoUrl",
+  "footerTagline",
+  "footerDescription",
+  "footerShopLinks",
+  "footerDerasarLinks",
+  "footerWholesaleLinks",
+  "footerLegalLinks",
+  "footerShopHeading",
+  "footerDerasarHeading",
+  "footerWholesaleHeading",
+  "footerContactHeading",
+  "footerCopyrightText",
+  "footerComplianceText",
 ] as const;
 
 const updateSettingsSchema = z.object({

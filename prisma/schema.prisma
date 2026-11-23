@@ -50,6 +50,21 @@ enum SubmissionType {
   BULK_ENQUIRY
 }
 
+enum ShipmentStatus {
+  PENDING
+  PACKED
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURNED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                  String    @id @default(cuid())
   email               String    @unique
@@ -74,6 +89,7 @@ model User {
   addresses          Address[]
   cart               Cart?
   orders             Order[]
+  reviews            ProductReview[]
   orderQueries       OrderQuery[]
   couponRedemptions  CouponRedemption[]
   referralsGiven     ReferralUsage[]     @relation("ReferrerUsages")
@@ -168,6 +184,7 @@ model Product {
   variants   ProductVariant[]
   images     ProductImage[]
   orderItems OrderItem[]
+  reviews    ProductReview[]
 
   @@index([slug])
   @@index([categoryId, active])
@@ -265,11 +282,42 @@ model Order {
   queries           OrderQuery[]
   couponRedemptions CouponRedemption[]
   referralUsage     ReferralUsage?
+  shipment          Shipment?
 
   @@index([userId, createdAt])
   @@index([orderNumber])
   @@index([status, createdAt])
   @@index([pincode])
+}
+
+model Shipment {
+  id             String         @id @default(cuid())
+  orderId        String         @unique
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status         ShipmentStatus @default(PENDING)
+  courierName    String?
+  trackingNumber String?
+  trackingUrl    String?
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  events ShipmentEvent[]
+
+  @@index([status, updatedAt])
+}
+
+model ShipmentEvent {
+  id         String         @id @default(cuid())
+  shipmentId String
+  shipment   Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  status     ShipmentStatus
+  note       String?
+  createdAt  DateTime       @default(now())
+
+  @@index([shipmentId, createdAt])
 }
 
 model OrderItem {
@@ -288,6 +336,27 @@ model OrderItem {
   lineTotalPaise Int
 
   @@index([orderId])
+}
+
+model ProductReview {
+  id               String       @id @default(cuid())
+  productId        String
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId          String?
+  rating           Int
+  title            String?
+  body             String
+  imageUrl         String?
+  status           ReviewStatus @default(PENDING)
+  verifiedPurchase Boolean      @default(false)
+  adminNote        String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([productId, status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model OrderStatusHistory {
@@ -464,6 +533,8 @@ model ProcessStep {
   stepOrder  Int
   heading    String
   subheading String?
+  imageUrl   String?
+  imageS3Key String?
 
   @@unique([blockId, stepOrder])
   @@index([blockId, stepOrder])

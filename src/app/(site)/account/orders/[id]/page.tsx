@@ -24,6 +24,7 @@ export default async function AccountOrderDetailPage({
       items: true,
       statusHistory: { orderBy: { createdAt: "desc" } },
       queries: { orderBy: { createdAt: "desc" } },
+      shipment: { include: { events: { orderBy: { createdAt: "desc" } } } },
     },
   });
 
@@ -46,12 +47,14 @@ export default async function AccountOrderDetailPage({
       </div>
 
       {/* Courier & Tracking */}
-      {(order.courierName || order.trackingNumber || order.courierImageUrl) && (
+      {(order.courierName || order.trackingNumber || order.courierImageUrl || order.shipment) && (
         <div className="rounded-3xl border border-line bg-butter p-6">
           <h2 className="text-lg font-bold text-kadhai">Courier &amp; Tracking Details</h2>
           <div className="mt-2 space-y-1 text-sm">
             {order.courierName && <p><strong>Courier:</strong> {order.courierName}</p>}
             {order.trackingNumber && <p><strong>Tracking Number:</strong> {order.trackingNumber}</p>}
+            {order.shipment?.status && <p><strong>Shipment Status:</strong> {order.shipment.status.replace(/_/g, " ")}</p>}
+            {order.shipment?.trackingUrl && <a href={order.shipment.trackingUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-maroon hover:underline">Track shipment online →</a>}
             {order.courierDate && (
               <p><strong>Dispatch Date:</strong> {new Date(order.courierDate).toLocaleDateString("en-IN")}</p>
             )}

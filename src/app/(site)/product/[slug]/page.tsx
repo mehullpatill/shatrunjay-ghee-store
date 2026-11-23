@@ -4,6 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ProductDetailClient from "@/components/ProductDetailClient";
 import ProductGalleryClient from "@/components/ProductGalleryClient";
+import ProductReviewsClient from "@/components/ProductReviewsClient";
 
 export async function generateMetadata({
   params,
@@ -27,6 +28,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       category: true,
       images: { orderBy: { sortOrder: "asc" } },
       variants: { where: { active: true }, orderBy: { sortOrder: "asc" } },
+      reviews: { where: { status: "APPROVED" }, include: { user: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -66,6 +68,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           />
         </div>
       </div>
+      <ProductReviewsClient productId={product.id} reviews={product.reviews.map((review) => ({ ...review, createdAt: review.createdAt.toISOString() }))} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ const discountSchema = z.discriminatedUnion("action", [
     showOnWebsite: z.boolean().default(false),
     bannerText: z.string().max(200).optional().nullable(),
     usageLimit: z.number().int().positive().optional().nullable(),
+    startsAt: z.string().optional().nullable(),
     expiresAt: z.string().optional().nullable(),
   }),
   z.object({
@@ -34,6 +35,7 @@ const discountSchema = z.discriminatedUnion("action", [
     minOrderPaise: z.number().int().min(0).default(0),
     totalUsageLimit: z.number().int().positive().optional().nullable(),
     perUserLimit: z.number().int().min(1).default(1),
+    startsAt: z.string().optional().nullable(),
     expiresAt: z.string().optional().nullable(),
   }),
   z.object({
@@ -75,6 +77,7 @@ export async function POST(req: Request) {
         showOnWebsite: d.showOnWebsite,
         bannerText: d.bannerText || null,
         usageLimit: d.usageLimit || null,
+        startsAt: d.startsAt ? new Date(d.startsAt) : null,
         expiresAt: d.expiresAt ? new Date(d.expiresAt) : null,
       },
     });
@@ -99,6 +102,7 @@ export async function POST(req: Request) {
         minOrderPaise: d.minOrderPaise,
         totalUsageLimit: d.totalUsageLimit || null,
         perUserLimit: d.perUserLimit,
+        startsAt: d.startsAt ? new Date(d.startsAt) : null,
         expiresAt: d.expiresAt ? new Date(d.expiresAt) : null,
       },
     });

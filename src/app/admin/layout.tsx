@@ -11,6 +11,7 @@ const ADMIN_NAV: [string, string][] = [
   ["Pincodes & COD", "/admin/pincodes"],
   ["CMS & Pages", "/admin/cms"],
   ["Lab Reports", "/admin/lab-reports"],
+  ["Product Reviews", "/admin/reviews"],
   ["Inbox", "/admin/inbox"],
   ["Settings & 2FA", "/admin/settings"],
   ["Audit Log", "/admin/audit"],
