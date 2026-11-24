@@ -7,8 +7,8 @@ export const WhatsAppIcon = ({ size = 20 }: { size?: number }) => svg(size,
 export const BagIcon = ({ size = 20 }: { size?: number }) => svg(size, "M6 7h12l1 13H5L6 7zM9 7a3 3 0 016 0");
 export const HomeIcon = ({ size = 20 }: { size?: number }) => svg(size, "M3 11.5L12 4l9 7.5M5.5 10v10h13V10M9.5 20v-5h5v5");
 export const GridIcon = ({ size = 20 }: { size?: number }) => svg(size, "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z");
-export const GiftIcon = ({ size = 20 }: { size?: number }) => svg(size, "M4 10h16v10H4zM3 7h18v3H3zM12 7v13M12 7H8.5A2.5 2.5 0 118.5 2.5C10.4 2.5 12 7 12 7zm0 0h3.5A2.5 2.5 0 1015.5 2.5C13.6 2.5 12 7 12 7z");
 export const UserIcon = ({ size = 20 }: { size?: number }) => svg(size, "M20 21a8 8 0 00-16 0M12 13a4 4 0 100-8 4 4 0 000 8z");
+export const MenuIcon = ({ size = 20 }: { size?: number }) => svg(size, "M4 7h16M4 12h16M4 17h16");
 export const PhoneIcon = ({ size = 18 }: { size?: number }) => svg(size, "M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z");
 export const MailIcon = ({ size = 18 }: { size?: number }) => svg(size, "M4 6h16v12H4zM4 7l8 6 8-6");
 export const PinIcon = ({ size = 18 }: { size?: number }) => svg(size, "M12 21s-7-6.2-7-11.5A7 7 0 0119 9.5C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z");

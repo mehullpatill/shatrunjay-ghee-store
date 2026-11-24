@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "./CartContext";
 import { BagIcon, WhatsAppIcon } from "./icons";
 
@@ -28,6 +28,12 @@ export default function Header({
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const { totalCount, setDrawerOpen } = useCart();
+
+  useEffect(() => {
+    const toggleMenu = () => setOpen((current) => !current);
+    window.addEventListener("sj:toggle-mobile-menu", toggleMenu);
+    return () => window.removeEventListener("sj:toggle-mobile-menu", toggleMenu);
+  }, []);
 
   const on = (h: string) => (h === "/" ? path === h : path.startsWith(h));
   const cleanWa = whatsappNumber.replace(/\D/g, "");

@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "./CartContext";
-import { BagIcon, GiftIcon, GridIcon, HomeIcon, UserIcon } from "./icons";
+import { BagIcon, GridIcon, HomeIcon, MenuIcon, UserIcon } from "./icons";
 
 const ITEMS = [
   { label: "Home", href: "/", icon: HomeIcon },
   { label: "Categories", href: "/shop", icon: GridIcon },
-  { label: "Gifts", href: "/ghee-laabh-yojna", icon: GiftIcon },
   { label: "Account", href: "/account", icon: UserIcon },
 ] as const;
 
@@ -28,7 +27,7 @@ export default function MobileBottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 shadow-[0_-4px_16px_rgba(40,24,10,0.12)] backdrop-blur md:hidden"
     >
       <div className="mx-auto grid max-w-md grid-cols-5 pb-[env(safe-area-inset-bottom)]">
-        {ITEMS.map(({ label, href, icon: Icon }) => {
+        {ITEMS.slice(0, 2).map(({ label, href, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
             <Link
@@ -61,6 +60,31 @@ export default function MobileBottomNav() {
           </span>
           <span>Cart</span>
         </Link>
+        {ITEMS.slice(2).map(({ label, href, icon: Icon }) => {
+          const active = isActive(pathname, href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={`flex min-h-[64px] flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors ${
+                active ? "text-maroon" : "text-muted hover:text-maroon"
+              }`}
+            >
+              <Icon size={21} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          aria-label="Open navigation menu"
+          onClick={() => window.dispatchEvent(new Event("sj:toggle-mobile-menu"))}
+          className="flex min-h-[64px] flex-col items-center justify-center gap-1 text-[10px] font-semibold text-muted transition-colors hover:text-maroon"
+        >
+          <MenuIcon size={21} />
+          <span>Menu</span>
+        </button>
       </div>
     </nav>
   );
