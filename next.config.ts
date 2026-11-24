@@ -7,13 +7,13 @@ const devScriptPolicy = process.env.NODE_ENV === "development" ? " 'unsafe-eval'
 
 const cspDirectives = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${devScriptPolicy} https://checkout.razorpay.com`,
+  `script-src 'self' 'unsafe-inline'${devScriptPolicy} https://checkout.razorpay.com https://cdn.razorpay.com`,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  `img-src 'self' data: blob: https://${s3Host} https://lh3.googleusercontent.com https://maps.gstatic.com`,
+  `img-src 'self' data: blob: https://${s3Host} https://lh3.googleusercontent.com https://maps.gstatic.com https://*.razorpay.com https://cdn.razorpay.com`,
   `media-src 'self' blob: https://${s3Host}`,
   "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://www.google.com",
-  "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.ingest.sentry.io",
+  "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://cdn.razorpay.com https://*.ingest.sentry.io",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
