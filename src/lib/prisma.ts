@@ -1,25 +1,26 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { getEnv } from "./env";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-function getSingleConnectionUrl(): string {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required");
-  }
-
-  const url = new URL(databaseUrl);
-  url.searchParams.set("connection_limit", "1");
-  return url.toString();
-}
 
 export function getPrisma(): PrismaClient {
   if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
   getEnv();
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    // Keep the per-instance pool bounded because Vercel can run multiple
+    // warm instances while the database has a small connection budget.
+    max: 2,
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 30_000,
+  });
+
   const client = new PrismaClient({
-    datasourceUrl: getSingleConnectionUrl(),
+    adapter: new PrismaPg(pool),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
