@@ -4,6 +4,7 @@ import { WhatsAppIcon } from "@/components/icons";
 import { getCurrentUser } from "@/lib/auth";
 import { getSiteSettings } from "@/lib/cms";
 import { prisma } from "@/lib/prisma";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const [user, settings, licenses] = await Promise.all([
@@ -40,7 +41,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         whatsappNumber={settings.whatsappNumber}
       />
 
-      <main id="main" className="min-h-[65vh]">
+      <main id="main" className="min-h-[65vh] pb-20 md:pb-0">
         {children}
       </main>
 
@@ -52,11 +53,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Chat on WhatsApp"
-          className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[#1fa855] text-white shadow-lg transition-transform hover:scale-105"
+          className="fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[#1fa855] text-white shadow-lg transition-transform hover:scale-105 md:bottom-5"
         >
           <WhatsAppIcon size={28} />
         </a>
       )}
+
+      <MobileBottomNav />
 
       <style>{`
         @keyframes marquee {
