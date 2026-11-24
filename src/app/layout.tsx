@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
-import { Inter, Mukta } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/CartContext";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const mukta = Mukta({
-  subsets: ["latin", "devanagari"],
-  weight: ["500", "700", "800"],
-  variable: "--font-mukta",
-});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://shatrunjayghee.com";
 
@@ -32,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mukta.variable}`}>
+    <html lang="en">
       <body className="font-sans antialiased">
         <CartProvider>{children}</CartProvider>
       </body>

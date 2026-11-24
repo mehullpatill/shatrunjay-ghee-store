@@ -545,28 +545,28 @@ async function main() {
     });
   }
 
-  // 9. Sample Mumbai pincodes (COD + Mumbai delivery)
-  const sampleMumbaiPincodes = [
-    { pincode: "400001", area: "Fort" },
-    { pincode: "400002", area: "Kalbadevi" },
-    { pincode: "400004", area: "Girgaon / Charni Road" },
-    { pincode: "400007", area: "Grant Road" },
-    { pincode: "400014", area: "Dadar" },
-    { pincode: "400050", area: "Bandra West" },
-    { pincode: "400053", area: "Andheri West" },
-    { pincode: "400067", area: "Kandivali West" },
-    { pincode: "400092", area: "Borivali West" },
+  // 9. Approved Mumbai pincodes (COD + Mumbai delivery).
+  // This is the business-provided 21-pincode whitelist; do not expand it
+  // without confirmation from the business owner.
+  const approvedMumbaiPincodes: Array<[string, string]> = [
+    ["400001", "Mumbai G. P. O."], ["400002", "Kalbadevi"], ["400003", "Mandvi"],
+    ["400004", "Girgaon"], ["400005", "Colaba"], ["400006", "Malbar Hill"],
+    ["400007", "Grant Road"], ["400008", "Mumbai Central"], ["400009", "Chinch B’der"],
+    ["400010", "Mazgaon"], ["400011", "Jacob Circle"], ["400012", "Parel"],
+    ["400018", "Worli"], ["400020", "Marine Lines"], ["400021", "Nariman Point"],
+    ["400023", "Fort"], ["400026", "Cumbala Hill"], ["400027", "Jijamata Udyan"],
+    ["400032", "Mantralaya"], ["400036", "A. K. Marg"], ["400038", "Ballard pier"],
   ];
-  for (const p of sampleMumbaiPincodes) {
+  for (const [pincode, area] of approvedMumbaiPincodes) {
     await prisma.serviceablePincode.upsert({
-      where: { pincode: p.pincode },
-      update: {},
+      where: { pincode },
+      update: { isMumbai: true, isCodAllowed: true, city: "Mumbai", area },
       create: {
-        pincode: p.pincode,
+        pincode,
         isMumbai: true,
         isCodAllowed: true,
         city: "Mumbai",
-        area: p.area,
+        area,
       },
     });
   }

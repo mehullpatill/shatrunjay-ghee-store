@@ -3,6 +3,20 @@ import type { DiscountType } from "@prisma/client";
 export const MUMBAI_ETA_TEXT = "2 to 3 days";
 export const OUTSIDE_MUMBAI_ETA_TEXT = "5 to 7 working days";
 
+// Business-approved Mumbai COD whitelist. Keep this list in code so a stale or
+// misconfigured database row cannot make COD available elsewhere.
+export const APPROVED_MUMBAI_COD_PINCODES = [
+  "400001", "400002", "400003", "400004", "400005", "400006", "400007",
+  "400008", "400009", "400010", "400011", "400012", "400018", "400020",
+  "400021", "400023", "400026", "400027", "400032", "400036", "400038",
+] as const;
+
+const approvedMumbaiCodPincodes = new Set<string>(APPROVED_MUMBAI_COD_PINCODES);
+
+export function isApprovedMumbaiCodPincode(pincode: string): boolean {
+  return approvedMumbaiCodPincodes.has(pincode.trim());
+}
+
 export function formatRupees(paise: number): string {
   const rupees = paise / 100;
   return new Intl.NumberFormat("en-IN", {

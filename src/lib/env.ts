@@ -34,8 +34,6 @@ const envSchema = z.object({
   GOOGLE_PLACES_ID: z.string().optional().default(""),
   UPSTASH_REDIS_REST_URL: z.string().optional().default(""),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional().default(""),
-  TURNSTILE_SECRET_KEY: z.string().optional().default(""),
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional().default(""),
   SENTRY_DSN: z.string().optional().default(""),
 });
 

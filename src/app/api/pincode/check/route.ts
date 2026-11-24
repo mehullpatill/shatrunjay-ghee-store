@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getDeliveryEta, validatePincodeFormat } from "@/lib/pricing";
+import { getDeliveryEta, isApprovedMumbaiCodPincode, validatePincodeFormat } from "@/lib/pricing";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -11,11 +11,16 @@ export async function GET(req: Request) {
   }
 
   const record = await prisma.serviceablePincode.findUnique({ where: { pincode } });
-  const isMumbai = Boolean(record?.isMumbai);
-  const isCodAllowed = Boolean(record?.isCodAllowed);
+  if (!record) {
+    return NextResponse.json({ error: "This pincode is not currently serviceable." }, { status: 404 });
+  }
+
+  const isMumbai = record.isMumbai;
+  const isCodAllowed = record.isCodAllowed && isApprovedMumbaiCodPincode(pincode);
 
   return NextResponse.json({
     pincode,
+    isServiceable: true,
     isMumbai,
     isCodAllowed,
     deliveryEtaText: getDeliveryEta(isMumbai),

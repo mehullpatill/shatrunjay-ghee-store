@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { contactFormSchema } from "@/lib/validators";
-import { assertSameOrigin, getClientIp, hashIp, verifyTurnstile } from "@/lib/security";
+import { assertSameOrigin, getClientIp, hashIp } from "@/lib/security";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { emailService } from "@/lib/ses";
 
@@ -28,14 +28,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
 
-  const { type, firstName, lastName, phone, email, message, turnstileToken, website } = parsed.data;
+  const { type, firstName, lastName, phone, email, message, website } = parsed.data;
   if (website) {
     return NextResponse.json({ message: "Thank you for reaching out!" });
-  }
-
-  const captchaOk = await verifyTurnstile(turnstileToken, ip);
-  if (!captchaOk) {
-    return NextResponse.json({ error: "Captcha verification failed." }, { status: 400 });
   }
 
   await prisma.contactSubmission.create({

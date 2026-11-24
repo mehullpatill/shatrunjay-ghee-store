@@ -238,6 +238,11 @@ export default function AdminCmsClient({
           <select value={archSection} onChange={(e) => setArchSection(e.target.value)} className="field">
             <option value="derasar:jinalay">Derasar: Jinalay</option>
             <option value="derasar:bhojanshala">Derasar: Bhojanshala</option>
+            <option value="derasar:pratishtha_mahostav">Derasar: Pratishtha Mahostav</option>
+            <option value="derasar:chaturmas">Derasar: Chaturmas</option>
+            <option value="derasar:varshitap">Derasar: Varshitap</option>
+            <option value="derasar:navanu_yatra">Derasar: Navanu Yatra</option>
+            <option value="derasar:other_religious_functions">Derasar: Other Religious Functions</option>
             <option value="ghee_laabh_yojna">Ghee Laabh Yojna</option>
             <option value="wholesale:temples">Wholesale: Temples</option>
             <option value="wholesale:social_events">Wholesale: Social Events</option>

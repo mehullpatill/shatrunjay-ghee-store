@@ -24,6 +24,10 @@ The database connection is exclusively driven by `DATABASE_URL` in `.env` (`pris
 ## 2. Environment Variables
 See `.env.example` for every variable. The application validates environment variables at boot via Zod (`src/lib/env.ts`) and fails fast if any required key is missing or invalid.
 
+The current project uses system font fallbacks so production builds do not depend
+on Google Fonts network access. If brand fonts are supplied later, self-host
+them under `public/` and update the CSS variables in `src/app/globals.css`.
+
 ---
 
 ## 3. Razorpay Setup & Webhook
@@ -77,9 +81,9 @@ All media (product images, banners, videos, lab reports, archives, courier image
 
 ---
 
-## 6. Google Places API & Captcha (Turnstile)
+## 6. Google Places API
 - **Google Reviews**: Enable **Places API** in Google Cloud Console, set `GOOGLE_PLACES_API_KEY` and `GOOGLE_PLACES_ID` (or configure Place ID in `/admin/settings`). Falls back gracefully if API is unavailable.
-- **Spam Protection**: Create a Cloudflare Turnstile widget and set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`.
+- Contact and signup forms use same-origin checks, honeypot fields, input validation, and rate limiting.
 
 ---
 
@@ -91,5 +95,5 @@ All media (product images, banners, videos, lab reports, archives, courier image
   1. Log into `/admin` with `ADMIN_SEED_EMAIL` and immediately change password + enable 2FA (`/admin/settings`).
   2. Review and confirm all **Placeholder Prices** (`/admin/products`) and add real **SKUs**.
   3. Update placeholder **MSME** and **COI** license numbers (`/admin/cms`).
-  4. Upload full **Mumbai & COD Pincode CSV** (`/admin/pincodes`).
+  4. Confirm the business-provided 21-code Mumbai & COD whitelist in `/admin/pincodes`.
   5. Switch Razorpay keys from `rzp_test_*` to `rzp_live_*` and verify live webhook delivery.

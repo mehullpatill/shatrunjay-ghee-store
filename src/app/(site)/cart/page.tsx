@@ -1,10 +1,32 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/components/CartContext";
 import { formatRupees } from "@/lib/pricing";
 
 export default function CartPage() {
   const { items, subtotalPaise, updateQty, removeItem } = useCart();
+  const [pincode, setPincode] = useState("");
+  const [deliveryMessage, setDeliveryMessage] = useState("");
+  const [checkingPincode, setCheckingPincode] = useState(false);
+
+  const checkDelivery = async () => {
+    setCheckingPincode(true);
+    setDeliveryMessage("");
+    try {
+      const res = await fetch(`/api/pincode/check?pincode=${encodeURIComponent(pincode)}`);
+      const data = (await res.json()) as { deliveryEtaText?: string; isCodAllowed?: boolean; error?: string };
+      setDeliveryMessage(
+        res.ok && data.deliveryEtaText
+          ? `Estimated delivery: ${data.deliveryEtaText} • ${data.isCodAllowed ? "COD available" : "Online payment only"}`
+          : data.error || "Enter a valid 6-digit pincode."
+      );
+    } catch {
+      setDeliveryMessage("Could not check this pincode. Please try again.");
+    } finally {
+      setCheckingPincode(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 md:px-6">
@@ -64,6 +86,24 @@ export default function CartPage() {
             <div className="mt-4 border-t border-line pt-4 flex justify-between text-lg font-extrabold text-kadhai">
               <span>Total</span>
               <span>{formatRupees(subtotalPaise)}</span>
+            </div>
+            <div className="border-t border-line pt-4">
+              <p className="text-xs font-semibold text-muted">Check delivery &amp; COD availability</p>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Enter pincode"
+                  className="field flex-1"
+                />
+                <button type="button" onClick={checkDelivery} disabled={checkingPincode} className="btn-ghost px-3">
+                  {checkingPincode ? "Checking…" : "Check"}
+                </button>
+              </div>
+              {deliveryMessage && <p className="mt-2 text-xs font-medium text-kadhai">{deliveryMessage}</p>}
             </div>
             <Link href="/checkout" className="btn mt-6 w-full text-center">
               Proceed to Checkout

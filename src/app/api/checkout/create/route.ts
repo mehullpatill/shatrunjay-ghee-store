@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { checkoutCreateSchema } from "@/lib/validators";
 import { assertSameOrigin, generateOrderNumber, getClientIp } from "@/lib/security";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getDeliveryEta } from "@/lib/pricing";
+import { getDeliveryEta, isApprovedMumbaiCodPincode } from "@/lib/pricing";
 import { resolveAndValidateDiscount } from "@/lib/discount-server";
 import { getSiteSettings } from "@/lib/cms";
 import { createRazorpayOrder } from "@/lib/razorpay";
@@ -50,8 +50,11 @@ export async function POST(req: Request) {
   const pincodeRecord = await prisma.serviceablePincode.findUnique({
     where: { pincode: address.pincode },
   });
-  const isMumbai = Boolean(pincodeRecord?.isMumbai);
-  const isCodAllowed = Boolean(pincodeRecord?.isCodAllowed);
+  if (!pincodeRecord) {
+    return NextResponse.json({ error: "This pincode is not currently serviceable." }, { status: 400 });
+  }
+  const isMumbai = pincodeRecord.isMumbai;
+  const isCodAllowed = pincodeRecord.isCodAllowed && isApprovedMumbaiCodPincode(address.pincode);
 
   if (paymentMethod === "COD" && !isCodAllowed) {
     return NextResponse.json(
@@ -123,7 +126,7 @@ export async function POST(req: Request) {
       totalPaise,
       appliedCode: discountRes.candidate?.code ?? null,
       discountKind: discountRes.candidate?.kind ?? null,
-      discountCandidate: discountRes.candidate,
+      discountCandidate: discountRes.candidate ? { ...discountRes.candidate } : null,
       items: orderItemsData,
       state: "PENDING",
     };
@@ -135,7 +138,7 @@ export async function POST(req: Request) {
           payload: intentPayload,
         },
       });
-    } catch (error) {
+    } catch {
       // If the intent cannot be persisted, do not leave a usable gateway order behind.
       throw new Error("Could not prepare checkout securely. Please try again.");
     }

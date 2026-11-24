@@ -34,7 +34,7 @@ export default function ProductDetailClient({
     setEtaMsg(null);
     const res = await fetch(`/api/pincode/check?pincode=${encodeURIComponent(pincode)}`);
     const data = (await res.json()) as { deliveryEtaText?: string; isCodAllowed?: boolean; error?: string };
-    if (!res.ok) {
+    if (!res.ok || !data.deliveryEtaText) {
       setEtaMsg(data.error || "Enter a valid 6-digit pincode");
     } else {
       setEtaMsg(

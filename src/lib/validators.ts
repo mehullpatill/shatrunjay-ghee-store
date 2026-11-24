@@ -14,7 +14,6 @@ export const signupSchema = z.object({
   phone: z.string().trim().min(8).max(20).optional(),
   password: passwordSchema,
   referralCodeUsed: z.string().trim().max(32).optional(),
-  turnstileToken: z.string().optional(),
   website: z.string().max(0).optional(), // honeypot
 });
 
@@ -69,7 +68,6 @@ export const contactFormSchema = z.object({
   phone: z.string().trim().min(8).max(20),
   email: z.string().trim().email().optional().or(z.literal("")),
   message: z.string().trim().min(5).max(3000),
-  turnstileToken: z.string().optional(),
   website: z.string().max(0).optional(), // honeypot
 });
 

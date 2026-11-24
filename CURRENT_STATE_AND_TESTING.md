@@ -14,7 +14,6 @@ This document describes the current implementation, what can be managed from the
 - Amazon S3 presigned uploads
 - Razorpay payments
 - Amazon SES email delivery
-- Cloudflare Turnstile spam protection
 - Upstash Redis rate limiting (optional but recommended)
 - Vitest unit/integration tests
 - Playwright end-to-end tests
@@ -201,6 +200,23 @@ The admin navigation currently includes:
 - Important admin actions are recorded in the audit log.
 - TOTP-based admin 2FA is available from Admin → Settings.
 
+### Mumbai serviceability and COD
+
+The testing database and seed data contain the business-provided 21-code Mumbai
+COD whitelist:
+
+```text
+400001, 400002, 400003, 400004, 400005, 400006, 400007, 400008, 400009,
+400010, 400011, 400012, 400018, 400020, 400021, 400023, 400026, 400027,
+400032, 400036, 400038
+```
+
+All 21 are marked Mumbai and COD eligible. Unknown valid pincodes are not
+serviceable and cannot proceed to checkout. COD is also independently clamped
+to the approved list on the server. Mumbai ETA is 2–3 days; serviceable
+non-Mumbai rows, if added by an administrator later, use 5–7 working days and
+cannot enable COD unless they are in the approved list.
+
 ## 4. Database Migrations
 
 The database currently has these project migrations:
@@ -228,6 +244,9 @@ npm run prisma:generate
 
 Create a `.env` file in the project root. Never commit this file and never place real secrets in documentation.
 
+For a safe starting point, copy `.env.example`; it contains variable names and
+safe placeholders only.
+
 ### Required for database and application startup
 
 ```env
@@ -247,6 +266,11 @@ S3_PUBLIC_BASE_URL=https://your-public-media-domain.example.com
 ```
 
 The S3 bucket must allow the application origin in its CORS configuration and must allow public reads for the intended media objects, or use a CDN/public media endpoint.
+
+The current seed catalogue still marks prices as placeholders and leaves SKUs
+unset because approved commercial data was not supplied. Do not publish those
+values to production until the business owner confirms prices, SKUs, pack sizes,
+product copy, Groundnut Oil catalogue data, and legal company identifiers.
 
 ### Required for online payments
 
@@ -272,14 +296,10 @@ SES_BUSINESS_INBOX_EMAIL=info@your-domain.example
 
 Also configure AWS SES domain verification, DKIM, SPF, DMARC, and production sending access.
 
-### Required for production signup/contact spam protection
+### Signup and contact abuse protection
 
-```env
-TURNSTILE_SECRET_KEY=replace-me
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=replace-me
-```
-
-Turnstile is optional in development but should be configured for production.
+Signup and contact forms use same-origin validation, honeypot fields, strict
+Zod input validation, and rate limiting. No CAPTCHA provider is required.
 
 ### Recommended shared rate limiting
 
@@ -427,7 +447,7 @@ Before accepting real orders:
 5. Configure Razorpay live keys and verify webhooks.
 6. Configure S3 CORS and public media delivery.
 7. Configure SES production access and domain authentication.
-8. Configure Turnstile and shared Redis rate limiting.
+8. Configure shared Redis rate limiting.
 9. Replace placeholder product prices and add real SKUs.
 10. Replace placeholder license numbers.
 11. Import the complete serviceable pincode list.

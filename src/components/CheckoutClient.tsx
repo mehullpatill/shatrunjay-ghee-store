@@ -51,6 +51,7 @@ export default function CheckoutClient({
 
   const [pincodeInfo, setPincodeInfo] = useState<{
     checked: boolean;
+    isServiceable: boolean;
     isMumbai: boolean;
     isCodAllowed: boolean;
     deliveryEtaText: string;
@@ -68,10 +69,11 @@ export default function CheckoutClient({
     if (/^[1-9][0-9]{5}$/.test(pincode)) {
       fetch(`/api/pincode/check?pincode=${pincode}`)
         .then((r) => r.json())
-        .then((d: { isMumbai?: boolean; isCodAllowed?: boolean; deliveryEtaText?: string }) => {
-          if (d.deliveryEtaText) {
+        .then((d: { isServiceable?: boolean; isMumbai?: boolean; isCodAllowed?: boolean; deliveryEtaText?: string }) => {
+          if (d.isServiceable && d.deliveryEtaText) {
             setPincodeInfo({
               checked: true,
+              isServiceable: true,
               isMumbai: Boolean(d.isMumbai),
               isCodAllowed: Boolean(d.isCodAllowed),
               deliveryEtaText: d.deliveryEtaText,
@@ -79,9 +81,11 @@ export default function CheckoutClient({
             if (!d.isCodAllowed && paymentMethod === "COD") {
               setPaymentMethod("RAZORPAY");
             }
+          } else {
+            setPincodeInfo({ checked: true, isServiceable: false, isMumbai: false, isCodAllowed: false, deliveryEtaText: "" });
           }
         })
-        .catch(() => {});
+        .catch(() => setPincodeInfo({ checked: true, isServiceable: false, isMumbai: false, isCodAllowed: false, deliveryEtaText: "" }));
     } else {
       setPincodeInfo(null);
     }
@@ -323,11 +327,16 @@ export default function CheckoutClient({
               </label>
             </div>
 
-            {pincodeInfo && (
+            {pincodeInfo?.isServiceable && (
               <div className="rounded-2xl bg-butter p-4 text-xs text-kadhai space-y-1">
                 <p className="font-bold">Estimated Delivery: {pincodeInfo.deliveryEtaText}</p>
                 <p>{pincodeInfo.isMumbai ? checkoutNotes.mumbai : checkoutNotes.outsideMumbai}</p>
               </div>
+            )}
+            {pincodeInfo && !pincodeInfo.isServiceable && (
+              <p className="rounded-2xl bg-red-50 p-4 text-xs font-semibold text-red-800">
+                This pincode is not currently serviceable. Please check the pincode or contact us for help.
+              </p>
             )}
           </div>
 
@@ -342,10 +351,10 @@ export default function CheckoutClient({
               />
               <div>
                 <p className="font-semibold text-kadhai">Pay Online via Razorpay</p>
-                <p className="text-xs text-muted">UPI, Cards, Netbanking, Wallets — Available for all pincodes</p>
+                <p className="text-xs text-muted">UPI, Cards, Netbanking, Wallets — Available for serviceable pincodes</p>
               </div>
             </label>
-            {pincodeInfo?.isCodAllowed && (
+            {pincodeInfo?.isServiceable && pincodeInfo.isCodAllowed && (
               <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line p-4">
                 <input
                   type="radio"

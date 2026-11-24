@@ -78,26 +78,6 @@ export function getClientIp(req: Request): string {
   return req.headers.get("x-real-ip") || "unknown";
 }
 
-export async function verifyTurnstile(token: string | undefined, ip: string): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    // Allow in local dev/test when Turnstile key is not configured
-    return process.env.NODE_ENV !== "production";
-  }
-  if (!token) return false;
-  try {
-    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret, response: token, remoteip: ip }),
-    });
-    const data = (await res.json()) as { success?: boolean };
-    return Boolean(data.success);
-  } catch {
-    return false;
-  }
-}
-
 export function assertSameOrigin(req: Request): boolean {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl) return true;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AuthError, requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { pincodeRowSchema } from "@/lib/validators";
+import { isApprovedMumbaiCodPincode } from "@/lib/pricing";
 import { recordAuditLog } from "@/lib/audit";
 import { assertSameOrigin, getClientIp } from "@/lib/security";
 
@@ -38,10 +39,11 @@ export async function POST(req: Request) {
   const single = singleSchema.safeParse(body);
   if (single.success) {
     const d = single.data;
+    const isCodAllowed = d.isCodAllowed && isApprovedMumbaiCodPincode(d.pincode);
     const saved = await prisma.serviceablePincode.upsert({
       where: { pincode: d.pincode },
-      create: { pincode: d.pincode, isMumbai: d.isMumbai, isCodAllowed: d.isCodAllowed, city: d.city || null, area: d.area || null },
-      update: { isMumbai: d.isMumbai, isCodAllowed: d.isCodAllowed, city: d.city || null, area: d.area || null },
+      create: { pincode: d.pincode, isMumbai: d.isMumbai, isCodAllowed, city: d.city || null, area: d.area || null },
+      update: { isMumbai: d.isMumbai, isCodAllowed, city: d.city || null, area: d.area || null },
     });
     await recordAuditLog({ actorId: admin.id, actorEmail: admin.email, action: "UPSERT_PINCODE", entityType: "ServiceablePincode", entityId: saved.pincode, afterSummary: saved, ip });
     return NextResponse.json({ pincode: saved });
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
       deduped.set(pin, {
         pincode: pin,
         isMumbai,
-        isCodAllowed,
+        isCodAllowed: isCodAllowed && isApprovedMumbaiCodPincode(pin),
         city: cols[3] || null,
         area: cols[4] || null,
       });

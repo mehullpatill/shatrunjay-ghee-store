@@ -5,6 +5,8 @@ import {
   getDeliveryEta,
   MUMBAI_ETA_TEXT,
   OUTSIDE_MUMBAI_ETA_TEXT,
+  APPROVED_MUMBAI_COD_PINCODES,
+  isApprovedMumbaiCodPincode,
   validatePincodeFormat,
 } from "@/lib/pricing";
 
@@ -24,6 +26,14 @@ describe("Pricing & Pincode Logic", () => {
     expect(validatePincodeFormat("012345")).toBe(false);
     expect(validatePincodeFormat("40004")).toBe(false);
     expect(validatePincodeFormat("40000A")).toBe(false);
+  });
+
+  it("allows COD only for the approved 21 Mumbai pincodes", () => {
+    expect(APPROVED_MUMBAI_COD_PINCODES).toHaveLength(21);
+    expect(isApprovedMumbaiCodPincode("400001")).toBe(true);
+    expect(isApprovedMumbaiCodPincode("400038")).toBe(true);
+    expect(isApprovedMumbaiCodPincode("400014")).toBe(false);
+    expect(isApprovedMumbaiCodPincode("560001")).toBe(false);
   });
 
   it("computes fixed discount without exceeding subtotal", () => {
