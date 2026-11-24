@@ -211,11 +211,14 @@ COD whitelist:
 400032, 400036, 400038
 ```
 
-All 21 are marked Mumbai and COD eligible. Unknown valid pincodes are not
-serviceable and cannot proceed to checkout. COD is also independently clamped
-to the approved list on the server. Mumbai ETA is 2–3 days; serviceable
-non-Mumbai rows, if added by an administrator later, use 5–7 working days and
-cannot enable COD unless they are in the approved list.
+All 21 are marked Mumbai and COD eligible. Additional rows created by an
+administrator may also enable COD when explicitly marked as COD allowed.
+Pincodes not present in the local serviceability table are checked against the
+India postal directory through `https://api.postalpincode.in/pincode/{pincode}`.
+Valid postal pincodes allow Razorpay only; invalid pincodes are rejected. A
+database row controls COD eligibility, so postal validation alone can never
+enable COD. Mumbai ETA is 2–3 days; postal-validated pincodes without a local
+Mumbai row use 5–7 working days.
 
 ## 4. Database Migrations
 
@@ -359,7 +362,8 @@ npm test
 npm run build
 ```
 
-The current codebase still has known TypeScript errors in checkout/cart code, and the lint configuration needs correction before these checks are fully green.
+TypeScript and lint checks are currently green. ESLint still reports 29
+non-blocking `@next/next/no-img-element` warnings.
 
 ### Database and health check
 
@@ -450,7 +454,7 @@ Before accepting real orders:
 8. Configure shared Redis rate limiting.
 9. Replace placeholder product prices and add real SKUs.
 10. Replace placeholder license numbers.
-11. Import the complete serviceable pincode list.
+11. Confirm India postal-directory lookup availability and monitor its rate limits.
 12. Enable admin 2FA.
 13. Configure database backups and test a restore.
 14. Rotate any database or API credentials that were exposed during testing.

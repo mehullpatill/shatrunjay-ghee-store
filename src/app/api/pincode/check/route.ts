@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getDeliveryEta, isApprovedMumbaiCodPincode, validatePincodeFormat } from "@/lib/pricing";
+import { getDeliveryEta, validatePincodeFormat } from "@/lib/pricing";
+import { lookupIndianPostalPincode } from "@/lib/postal";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -11,12 +12,18 @@ export async function GET(req: Request) {
   }
 
   const record = await prisma.serviceablePincode.findUnique({ where: { pincode } });
+  let postal: Awaited<ReturnType<typeof lookupIndianPostalPincode>> | null = null;
   if (!record) {
-    return NextResponse.json({ error: "This pincode is not currently serviceable." }, { status: 404 });
+    try {
+      postal = await lookupIndianPostalPincode(pincode);
+    } catch {
+      return NextResponse.json({ error: "Pincode verification is temporarily unavailable. Please try again." }, { status: 503 });
+    }
+    if (!postal.valid) return NextResponse.json({ error: "This pincode is not valid according to India Post." }, { status: 404 });
   }
 
-  const isMumbai = record.isMumbai;
-  const isCodAllowed = record.isCodAllowed && isApprovedMumbaiCodPincode(pincode);
+  const isMumbai = record?.isMumbai ?? false;
+  const isCodAllowed = Boolean(record?.isCodAllowed);
 
   return NextResponse.json({
     pincode,
@@ -24,7 +31,8 @@ export async function GET(req: Request) {
     isMumbai,
     isCodAllowed,
     deliveryEtaText: getDeliveryEta(isMumbai),
-    city: record?.city ?? null,
-    area: record?.area ?? null,
+    city: record?.city ?? postal?.city ?? null,
+    state: postal?.state ?? null,
+    area: record?.area ?? postal?.area ?? null,
   });
 }

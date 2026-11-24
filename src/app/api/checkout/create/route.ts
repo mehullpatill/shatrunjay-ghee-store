@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { checkoutCreateSchema } from "@/lib/validators";
 import { assertSameOrigin, generateOrderNumber, getClientIp } from "@/lib/security";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getDeliveryEta, isApprovedMumbaiCodPincode } from "@/lib/pricing";
+import { getDeliveryEta } from "@/lib/pricing";
+import { lookupIndianPostalPincode } from "@/lib/postal";
 import { resolveAndValidateDiscount } from "@/lib/discount-server";
 import { getSiteSettings } from "@/lib/cms";
 import { createRazorpayOrder } from "@/lib/razorpay";
@@ -50,11 +51,17 @@ export async function POST(req: Request) {
   const pincodeRecord = await prisma.serviceablePincode.findUnique({
     where: { pincode: address.pincode },
   });
+  let postal: Awaited<ReturnType<typeof lookupIndianPostalPincode>> | null = null;
   if (!pincodeRecord) {
-    return NextResponse.json({ error: "This pincode is not currently serviceable." }, { status: 400 });
+    try {
+      postal = await lookupIndianPostalPincode(address.pincode);
+    } catch {
+      return NextResponse.json({ error: "Pincode verification is temporarily unavailable. Please try again." }, { status: 503 });
+    }
+    if (!postal.valid) return NextResponse.json({ error: "This pincode is not valid according to India Post." }, { status: 400 });
   }
-  const isMumbai = pincodeRecord.isMumbai;
-  const isCodAllowed = pincodeRecord.isCodAllowed && isApprovedMumbaiCodPincode(address.pincode);
+  const isMumbai = pincodeRecord?.isMumbai ?? false;
+  const isCodAllowed = Boolean(pincodeRecord?.isCodAllowed);
 
   if (paymentMethod === "COD" && !isCodAllowed) {
     return NextResponse.json(
