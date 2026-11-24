@@ -6,7 +6,10 @@ import Script from "next/script";
 import { useCart } from "./CartContext";
 import { formatRupees } from "@/lib/pricing";
 
-interface SavedAddress {
+/* ------------------------------------------------------------------ */
+/*  Types                                                               */
+/* ------------------------------------------------------------------ */
+export interface SavedAddress {
   id: string;
   label: string;
   recipientName: string;
@@ -16,6 +19,19 @@ interface SavedAddress {
   city: string;
   state: string;
   pincode: string;
+  isDefault: boolean;
+}
+
+interface AddressFormData {
+  label: string;
+  recipientName: string;
+  phone: string;
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
 }
 
 declare global {
@@ -24,9 +40,102 @@ declare global {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  Inline address form (add / edit inside checkout)                   */
+/* ------------------------------------------------------------------ */
+function AddressFormInline({
+  initial,
+  onSave,
+  onCancel,
+  saving,
+  error,
+}: {
+  initial: AddressFormData;
+  onSave: (data: AddressFormData) => Promise<void>;
+  onCancel: () => void;
+  saving: boolean;
+  error: string;
+}) {
+  const [form, setForm] = useState<AddressFormData>(initial);
+  const set = (k: keyof AddressFormData) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(form);
+      }}
+      className="mt-4 space-y-3"
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Label *</span>
+          <input type="text" required maxLength={40} value={form.label} onChange={set("label")} className="field" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Recipient Name *</span>
+          <input type="text" required maxLength={100} value={form.recipientName} onChange={set("recipientName")} className="field" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Phone *</span>
+          <input type="tel" required minLength={10} maxLength={15} value={form.phone} onChange={set("phone")} className="field" />
+        </label>
+      </div>
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-muted">Address Line 1 *</span>
+        <input type="text" required maxLength={200} value={form.line1} onChange={set("line1")} className="field" />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-xs font-medium text-muted">Address Line 2 (optional)</span>
+        <input type="text" maxLength={200} value={form.line2} onChange={set("line2")} className="field" />
+      </label>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">City *</span>
+          <input type="text" required maxLength={80} value={form.city} onChange={set("city")} className="field" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">State *</span>
+          <input type="text" required maxLength={80} value={form.state} onChange={set("state")} className="field" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Pincode *</span>
+          <input
+            type="text"
+            required
+            pattern="[1-9][0-9]{5}"
+            maxLength={6}
+            value={form.pincode}
+            onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value.replace(/\D/g, "") }))}
+            className="field"
+            placeholder="400004"
+          />
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={form.isDefault} onChange={set("isDefault")} className="accent-maroon" />
+        <span>Save as default address</span>
+      </label>
+      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
+      <div className="flex gap-3 pt-1">
+        <button type="submit" disabled={saving} className="btn text-sm px-4 py-2">
+          {saving ? "Saving…" : "Save & Use This Address"}
+        </button>
+        <button type="button" onClick={onCancel} className="btn-ghost text-sm px-4 py-2">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main CheckoutClient                                                 */
+/* ------------------------------------------------------------------ */
 export default function CheckoutClient({
   user,
-  savedAddresses,
+  savedAddresses: initialSavedAddresses,
   checkoutNotes,
   razorpayKeyId,
 }: {
@@ -38,17 +147,35 @@ export default function CheckoutClient({
   const router = useRouter();
   const { items, subtotalPaise, clearCart } = useCart();
 
+  /* ---- resend verification ---- */
   const [resending, setResending] = useState(false);
   const [resendMsg, setResendMsg] = useState("");
 
-  const [recipientName, setRecipientName] = useState(savedAddresses[0]?.recipientName || user?.name || "");
-  const [phone, setPhone] = useState(savedAddresses[0]?.phone || user?.phone || "");
-  const [line1, setLine1] = useState(savedAddresses[0]?.line1 || "");
-  const [line2, setLine2] = useState(savedAddresses[0]?.line2 || "");
-  const [city, setCity] = useState(savedAddresses[0]?.city || "");
-  const [state, setState] = useState(savedAddresses[0]?.state || "Maharashtra");
-  const [pincode, setPincode] = useState(savedAddresses[0]?.pincode || "");
+  /* ---- saved addresses (can grow during checkout session) ---- */
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(initialSavedAddresses);
 
+  /* ---- selected address id ("new" means manually filling a new one) ---- */
+  const defaultAddr = savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0] ?? null;
+  const [selectedAddressId, setSelectedAddressId] = useState<string | "new">(
+    defaultAddr ? defaultAddr.id : "new"
+  );
+
+  /* ---- inline edit/add panel ---- */
+  type Panel = "none" | "add" | { editId: string };
+  const [panel, setPanel] = useState<Panel>("none");
+  const [panelSaving, setPanelSaving] = useState(false);
+  const [panelError, setPanelError] = useState("");
+
+  /* ---- delivery fields (driven by selectedAddressId) ---- */
+  const [recipientName, setRecipientName] = useState(defaultAddr?.recipientName ?? user?.name ?? "");
+  const [phone, setPhone] = useState(defaultAddr?.phone ?? user?.phone ?? "");
+  const [line1, setLine1] = useState(defaultAddr?.line1 ?? "");
+  const [line2, setLine2] = useState(defaultAddr?.line2 ?? "");
+  const [city, setCity] = useState(defaultAddr?.city ?? "");
+  const [state, setState] = useState(defaultAddr?.state ?? "Maharashtra");
+  const [pincode, setPincode] = useState(defaultAddr?.pincode ?? "");
+
+  /* ---- pincode check ---- */
   const [pincodeInfo, setPincodeInfo] = useState<{
     checked: boolean;
     isServiceable: boolean;
@@ -57,6 +184,7 @@ export default function CheckoutClient({
     deliveryEtaText: string;
   } | null>(null);
 
+  /* ---- payment / discount / order ---- */
   const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; discountPaise: number; kind: string } | null>(null);
@@ -65,6 +193,22 @@ export default function CheckoutClient({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  /* ---- fill form fields when address selection changes ---- */
+  useEffect(() => {
+    if (selectedAddressId === "new") return; // keep what user typed
+    const addr = savedAddresses.find((a) => a.id === selectedAddressId);
+    if (!addr) return;
+    setRecipientName(addr.recipientName);
+    setPhone(addr.phone);
+    setLine1(addr.line1);
+    setLine2(addr.line2 ?? "");
+    setCity(addr.city);
+    setState(addr.state);
+    setPincode(addr.pincode);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAddressId]);
+
+  /* ---- pincode serviceability check ---- */
   useEffect(() => {
     if (/^[1-9][0-9]{5}$/.test(pincode)) {
       fetch(`/api/pincode/check?pincode=${pincode}`)
@@ -78,69 +222,62 @@ export default function CheckoutClient({
               isCodAllowed: Boolean(d.isCodAllowed),
               deliveryEtaText: d.deliveryEtaText,
             });
-            if (!d.isCodAllowed && paymentMethod === "COD") {
-              setPaymentMethod("RAZORPAY");
-            }
+            if (!d.isCodAllowed && paymentMethod === "COD") setPaymentMethod("RAZORPAY");
           } else {
             setPincodeInfo({ checked: true, isServiceable: false, isMumbai: false, isCodAllowed: false, deliveryEtaText: "" });
           }
         })
-        .catch(() => setPincodeInfo({ checked: true, isServiceable: false, isMumbai: false, isCodAllowed: false, deliveryEtaText: "" }));
+        .catch(() =>
+          setPincodeInfo({ checked: true, isServiceable: false, isMumbai: false, isCodAllowed: false, deliveryEtaText: "" })
+        );
     } else {
       setPincodeInfo(null);
     }
   }, [pincode, paymentMethod]);
 
-  if (!user) {
-    return (
-      <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-8 text-center">
-        <h1 className="text-2xl font-extrabold text-kadhai">Log in or Sign up to place your order</h1>
-        <p className="mt-2 text-sm text-muted">
-          Your cart items are saved. Please log in or create an account to complete checkout.
-        </p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link href="/login?returnTo=/checkout" className="btn">Log In</Link>
-          <Link href="/signup?returnTo=/checkout" className="btn-ghost">Sign Up</Link>
-        </div>
-      </div>
-    );
-  }
+  /* ---- reload saved addresses from API ---- */
+  const refreshSavedAddresses = async () => {
+    const res = await fetch("/api/account/addresses");
+    if (res.ok) {
+      const data = (await res.json()) as { addresses: SavedAddress[] };
+      setSavedAddresses(data.addresses);
+    }
+  };
 
-  if (!user.emailVerified) {
-    return (
-      <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-8 text-center">
-        <h1 className="text-2xl font-extrabold text-kadhai">Verify your email to continue</h1>
-        <p className="mt-2 text-sm text-muted">
-          Only verified accounts can place orders. Please click the verification link sent to <strong>{user.email}</strong>.
-        </p>
-        {resendMsg && <p className="mt-3 text-xs font-medium text-label">{resendMsg}</p>}
-        <button
-          type="button"
-          disabled={resending}
-          onClick={async () => {
-            setResending(true);
-            const r = await fetch("/api/auth/resend-verification", { method: "POST" });
-            const d = (await r.json()) as { message?: string; error?: string };
-            setResendMsg(d.message || d.error || "Sent.");
-            setResending(false);
-          }}
-          className="btn mt-5"
-        >
-          {resending ? "Sending..." : "Resend Verification Email"}
-        </button>
-      </div>
-    );
-  }
+  /* ---- panel save handler ---- */
+  const handlePanelSave = async (formData: { label: string; recipientName: string; phone: string; line1: string; line2: string; city: string; state: string; pincode: string; isDefault: boolean }) => {
+    setPanelSaving(true);
+    setPanelError("");
 
-  if (items.length === 0) {
-    return (
-      <div className="mx-auto max-w-lg rounded-3xl border border-line bg-butter p-8 text-center">
-        <h1 className="text-2xl font-bold text-kadhai">Your cart is empty</h1>
-        <Link href="/shop" className="btn mt-4">Shop Pure Ghee</Link>
-      </div>
-    );
-  }
+    const isEditing = typeof panel === "object" && "editId" in panel;
+    const url = isEditing
+      ? `/api/account/addresses?id=${(panel as { editId: string }).editId}`
+      : "/api/account/addresses";
+    const method = isEditing ? "PATCH" : "POST";
 
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...formData, line2: formData.line2 || null }),
+    });
+    const json = (await res.json()) as { address?: SavedAddress; error?: string };
+
+    if (!res.ok) {
+      setPanelError(json.error || "Failed to save address.");
+      setPanelSaving(false);
+      return;
+    }
+
+    // Refresh list and auto-select the new/edited address
+    await refreshSavedAddresses();
+    if (json.address) {
+      setSelectedAddressId(json.address.id);
+    }
+    setPanel("none");
+    setPanelSaving(false);
+  };
+
+  /* ---- discount ---- */
   const applyDiscount = async () => {
     setDiscountError("");
     const res = await fetch("/api/discounts/validate", {
@@ -159,6 +296,7 @@ export default function CheckoutClient({
 
   const finalTotalPaise = Math.max(0, subtotalPaise - (appliedDiscount?.discountPaise ?? 0));
 
+  /* ---- place order ---- */
   const placeOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -166,7 +304,6 @@ export default function CheckoutClient({
       setError("Please accept the Terms of Service, Privacy Policy, Shipping and Refund Policy.");
       return;
     }
-
     if (paymentMethod === "RAZORPAY" && !window.Razorpay) {
       setError("Payment gateway is still loading. Please wait a moment and try again.");
       return;
@@ -220,7 +357,7 @@ export default function CheckoutClient({
         name: "Shatrunjay Ghee",
         description: `Order ${data.orderNumber}`,
         order_id: data.razorpayOrderId,
-        prefill: { name: recipientName, email: user.email, contact: phone },
+        prefill: { name: recipientName, email: user?.email, contact: phone },
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
           const verifyRes = await fetch("/api/checkout/verify", {
             method: "POST",
@@ -240,9 +377,7 @@ export default function CheckoutClient({
             setSubmitting(false);
           }
         },
-        modal: {
-          ondismiss: () => setSubmitting(false),
-        },
+        modal: { ondismiss: () => setSubmitting(false) },
       });
       rzp.open();
     } catch {
@@ -251,104 +386,241 @@ export default function CheckoutClient({
     }
   };
 
+  /* ---------------------------------------------------------------- */
+  /*  Guards                                                            */
+  /* ---------------------------------------------------------------- */
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-8 text-center">
+        <h1 className="text-2xl font-extrabold text-kadhai">Log in or Sign up to place your order</h1>
+        <p className="mt-2 text-sm text-muted">
+          Your cart items are saved. Please log in or create an account to complete checkout.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Link href="/login?returnTo=/checkout" className="btn">Log In</Link>
+          <Link href="/signup?returnTo=/checkout" className="btn-ghost">Sign Up</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user.emailVerified) {
+    return (
+      <div className="mx-auto max-w-lg rounded-3xl border border-line bg-white p-8 text-center">
+        <h1 className="text-2xl font-extrabold text-kadhai">Verify your email to continue</h1>
+        <p className="mt-2 text-sm text-muted">
+          Only verified accounts can place orders. Please click the verification link sent to <strong>{user.email}</strong>.
+        </p>
+        {resendMsg && <p className="mt-3 text-xs font-medium text-label">{resendMsg}</p>}
+        <button
+          type="button"
+          disabled={resending}
+          onClick={async () => {
+            setResending(true);
+            const r = await fetch("/api/auth/resend-verification", { method: "POST" });
+            const d = (await r.json()) as { message?: string; error?: string };
+            setResendMsg(d.message || d.error || "Sent.");
+            setResending(false);
+          }}
+          className="btn mt-5"
+        >
+          {resending ? "Sending..." : "Resend Verification Email"}
+        </button>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="mx-auto max-w-lg rounded-3xl border border-line bg-butter p-8 text-center">
+        <h1 className="text-2xl font-bold text-kadhai">Your cart is empty</h1>
+        <Link href="/shop" className="btn mt-4">Shop Pure Ghee</Link>
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Render                                                            */
+  /* ---------------------------------------------------------------- */
+  const editingAddr = typeof panel === "object" && "editId" in panel
+    ? savedAddresses.find((a) => a.id === (panel as { editId: string }).editId)
+    : null;
+
+  const panelInitial = panel === "add"
+    ? { label: "Home", recipientName: user.name, phone: user.phone ?? "", line1: "", line2: "", city: "", state: "Maharashtra", pincode: "", isDefault: false }
+    : editingAddr
+    ? { ...editingAddr, line2: editingAddr.line2 ?? "" }
+    : { label: "Home", recipientName: "", phone: "", line1: "", line2: "", city: "", state: "", pincode: "", isDefault: false };
+
   return (
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
       <form onSubmit={placeOrder} className="grid gap-8 lg:grid-cols-[1.35fr_0.85fr]">
         <div className="space-y-6">
-          {savedAddresses.length > 0 && (
-            <div className="rounded-3xl border border-line bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted">Saved Addresses</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {savedAddresses.map((addr) => (
-                  <button
-                    key={addr.id}
-                    type="button"
-                    onClick={() => {
-                      setRecipientName(addr.recipientName);
-                      setPhone(addr.phone);
-                      setLine1(addr.line1);
-                      setLine2(addr.line2 || "");
-                      setCity(addr.city);
-                      setState(addr.state);
-                      setPincode(addr.pincode);
-                    }}
-                    className="rounded-2xl border border-line px-3 py-2 text-left text-xs hover:border-maroon"
-                  >
-                    <p className="font-bold text-kadhai">{addr.label} — {addr.pincode}</p>
-                    <p className="text-muted">{addr.line1}, {addr.city}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
+          {/* ---- Saved address picker ---- */}
           <div className="rounded-3xl border border-line bg-white p-6 space-y-4">
-            <h2 className="text-xl font-bold text-kadhai">Delivery Address</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">Recipient Name *</span>
-                <input type="text" required value={recipientName} onChange={(e) => setRecipientName(e.target.value)} className="field" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">Phone *</span>
-                <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} className="field" />
-              </label>
-            </div>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Address Line 1 *</span>
-              <input type="text" required value={line1} onChange={(e) => setLine1(e.target.value)} className="field" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted">Address Line 2 (optional)</span>
-              <input type="text" value={line2} onChange={(e) => setLine2(e.target.value)} className="field" />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">City *</span>
-                <input type="text" required value={city} onChange={(e) => setCity(e.target.value)} className="field" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">State *</span>
-                <input type="text" required value={state} onChange={(e) => setState(e.target.value)} className="field" />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted">Pincode *</span>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  pattern="[1-9][0-9]{5}"
-                  value={pincode}
-                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
-                  className="field"
-                  placeholder="400004"
-                />
-              </label>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xl font-bold text-kadhai">Delivery Address</h2>
+              {panel === "none" && savedAddresses.length < 10 && (
+                <button
+                  type="button"
+                  onClick={() => { setPanel("add"); setPanelError(""); }}
+                  className="text-xs font-semibold text-maroon hover:underline"
+                >
+                  + Add New
+                </button>
+              )}
             </div>
 
-            {pincodeInfo?.isServiceable && (
+            {/* Saved address radio cards */}
+            {savedAddresses.length > 0 && panel === "none" && (
+              <div className="space-y-2">
+                {savedAddresses.map((addr) => (
+                  <label
+                    key={addr.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition-colors ${
+                      selectedAddressId === addr.id
+                        ? "border-maroon bg-maroon/5"
+                        : "border-line hover:border-maroon/40"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="selectedAddress"
+                      className="mt-1 accent-maroon"
+                      checked={selectedAddressId === addr.id}
+                      onChange={() => { setSelectedAddressId(addr.id); setPanel("none"); }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-kadhai">{addr.label}</span>
+                        {addr.isDefault && (
+                          <span className="rounded-full bg-maroon/10 px-2 py-0.5 text-[10px] font-bold text-maroon">Default</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-ink mt-0.5">{addr.recipientName} · {addr.phone}</p>
+                      <p className="text-xs text-muted mt-0.5">
+                        {addr.line1}{addr.line2 ? `, ${addr.line2}` : ""}, {addr.city}, {addr.state} – {addr.pincode}
+                      </p>
+                      {selectedAddressId === addr.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPanel({ editId: addr.id });
+                            setPanelError("");
+                          }}
+                          className="mt-1.5 text-xs font-semibold text-maroon hover:underline"
+                        >
+                          Edit this address
+                        </button>
+                      )}
+                    </div>
+                  </label>
+                ))}
+
+                {/* Option to enter a one-time address (not saved) */}
+                <label
+                  className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition-colors ${
+                    selectedAddressId === "new"
+                      ? "border-maroon bg-maroon/5"
+                      : "border-line hover:border-maroon/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="selectedAddress"
+                    className="accent-maroon"
+                    checked={selectedAddressId === "new"}
+                    onChange={() => { setSelectedAddressId("new"); setPanel("none"); }}
+                  />
+                  <span className="text-sm font-medium text-kadhai">Use a different address</span>
+                </label>
+              </div>
+            )}
+
+            {/* Inline add / edit panel */}
+            {panel !== "none" && (
+              <AddressFormInline
+                initial={panelInitial}
+                onSave={handlePanelSave}
+                onCancel={() => { setPanel("none"); setPanelError(""); }}
+                saving={panelSaving}
+                error={panelError}
+              />
+            )}
+
+            {/* Manual address fields — shown when "new" is selected or no saved addresses */}
+            {panel === "none" && (selectedAddressId === "new" || savedAddresses.length === 0) && (
+              <div className="space-y-4 pt-2">
+                <p className="text-xs text-muted font-medium">
+                  {savedAddresses.length === 0
+                    ? "Enter your delivery details below."
+                    : "Fill in a one-time delivery address (it won't be saved)."}
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">Recipient Name *</span>
+                    <input type="text" required value={recipientName} onChange={(e) => setRecipientName(e.target.value)} className="field" />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">Phone *</span>
+                    <input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} className="field" />
+                  </label>
+                </div>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Address Line 1 *</span>
+                  <input type="text" required value={line1} onChange={(e) => setLine1(e.target.value)} className="field" />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-muted">Address Line 2 (optional)</span>
+                  <input type="text" value={line2} onChange={(e) => setLine2(e.target.value)} className="field" />
+                </label>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">City *</span>
+                    <input type="text" required value={city} onChange={(e) => setCity(e.target.value)} className="field" />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">State *</span>
+                    <input type="text" required value={state} onChange={(e) => setState(e.target.value)} className="field" />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-muted">Pincode *</span>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      pattern="[1-9][0-9]{5}"
+                      value={pincode}
+                      onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
+                      className="field"
+                      placeholder="400004"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Pincode info banners */}
+            {panel === "none" && pincodeInfo?.isServiceable && (
               <div className="rounded-2xl bg-butter p-4 text-xs text-kadhai space-y-1">
                 <p className="font-bold">Estimated Delivery: {pincodeInfo.deliveryEtaText}</p>
                 <p>{pincodeInfo.isMumbai ? checkoutNotes.mumbai : checkoutNotes.outsideMumbai}</p>
               </div>
             )}
-            {pincodeInfo && !pincodeInfo.isServiceable && (
+            {panel === "none" && pincodeInfo && !pincodeInfo.isServiceable && (
               <p className="rounded-2xl bg-red-50 p-4 text-xs font-semibold text-red-800">
                 This pincode is not currently serviceable. Please check the pincode or contact us for help.
               </p>
             )}
           </div>
 
+          {/* ---- Payment method ---- */}
           <div className="rounded-3xl border border-line bg-white p-6 space-y-3">
             <h2 className="text-xl font-bold text-kadhai">Payment Method</h2>
             <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line p-4">
-              <input
-                type="radio"
-                name="paymentMethod"
-                checked={paymentMethod === "RAZORPAY"}
-                onChange={() => setPaymentMethod("RAZORPAY")}
-              />
+              <input type="radio" name="paymentMethod" checked={paymentMethod === "RAZORPAY"} onChange={() => setPaymentMethod("RAZORPAY")} />
               <div>
                 <p className="font-semibold text-kadhai">Pay Online via Razorpay</p>
                 <p className="text-xs text-muted">UPI, Cards, Netbanking, Wallets — Available for serviceable pincodes</p>
@@ -356,12 +628,7 @@ export default function CheckoutClient({
             </label>
             {pincodeInfo?.isServiceable && pincodeInfo.isCodAllowed && (
               <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line p-4">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  checked={paymentMethod === "COD"}
-                  onChange={() => setPaymentMethod("COD")}
-                />
+                <input type="radio" name="paymentMethod" checked={paymentMethod === "COD"} onChange={() => setPaymentMethod("COD")} />
                 <div>
                   <p className="font-semibold text-kadhai">Cash on Delivery (COD)</p>
                   <p className="text-xs text-muted">Available for your pincode ({pincode})</p>
@@ -371,6 +638,7 @@ export default function CheckoutClient({
           </div>
         </div>
 
+        {/* ---- Order Summary ---- */}
         <div className="h-fit rounded-3xl border border-line bg-white p-6 space-y-4">
           <h2 className="text-xl font-bold text-kadhai">Order Summary</h2>
           <div className="space-y-2 border-b border-line pb-3 text-sm">
@@ -392,9 +660,7 @@ export default function CheckoutClient({
                 placeholder="Enter code"
                 className="field flex-1"
               />
-              <button type="button" onClick={applyDiscount} className="btn-ghost">
-                Apply
-              </button>
+              <button type="button" onClick={applyDiscount} className="btn-ghost">Apply</button>
             </div>
             {discountError && <p className="mt-1 text-xs text-red-700">{discountError}</p>}
             {appliedDiscount && (
