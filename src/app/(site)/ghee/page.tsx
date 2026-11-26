@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
+import { getEnv } from "@/lib/env";
+import { getCommerceProducts } from "@/lib/commerce";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Ghee" };
@@ -13,6 +15,8 @@ const GHEE_CATEGORY_CONFIG = [
 ];
 
 export default async function GheePage() {
+  const usingLeadr = getEnv().COMMERCE_BACKEND === "leadr";
+  const leadrProducts = usingLeadr ? await getCommerceProducts() : [];
   const [banners, categories, processBlocks] = await Promise.all([
     prisma.banner.findMany({
       where: { placement: { in: ["GHEE_COW", "GHEE_BUFFALO", "GHEE_A2"] }, active: true },
@@ -72,29 +76,24 @@ export default async function GheePage() {
       <div className="mt-16 space-y-20">
         {GHEE_CATEGORY_CONFIG.map((cfg) => {
           const cat = catMap.get(cfg.slug);
-          if (!cat) return null;
+          if (!cat && !usingLeadr) return null;
           const proc = procMap.get(cfg.processKey);
-          const cards: ProductCardData[] = cat.products
-            .map((p) => {
-              const v = p.variants[0];
-              if (!v) return null;
-              return {
-                id: p.id,
-                slug: p.slug,
-                name: p.name,
-                categoryName: cat.name,
-                categorySlug: cat.slug,
-                imageUrl: p.images[0]?.url || "/brand/photos/pack-cow.jpg",
-                defaultVariant: v,
-              };
-            })
-            .filter(Boolean) as ProductCardData[];
+          const categoryName = cat?.name || (cfg.slug === "a2-desi-cow-ghee" ? "A2 Desi Cow Ghee" : cfg.slug === "buffalo-ghee" ? "Buffalo Ghee" : "Cow Ghee");
+          const cards: ProductCardData[] = usingLeadr
+            ? leadrProducts.filter((p) => p.categorySlug === cfg.slug).map((p) => {
+                const v = p.variants[0];
+                return v ? { id: p.id, slug: p.slug, name: p.name, categoryName, categorySlug: cfg.slug, imageUrl: p.imageUrl, defaultVariant: v } : null;
+              }).filter(Boolean) as ProductCardData[]
+            : (cat?.products ?? []).map((p) => {
+                const v = p.variants[0];
+                return v ? { id: p.id, slug: p.slug, name: p.name, categoryName, categorySlug: cfg.slug, imageUrl: p.images[0]?.url || "/brand/photos/pack-cow.jpg", defaultVariant: v } : null;
+              }).filter(Boolean) as ProductCardData[];
 
           return (
-            <section key={cat.id} id={cat.slug} className="scroll-mt-24">
+            <section key={cfg.slug} id={cfg.slug} className="scroll-mt-24">
               <div className="border-b border-line pb-4">
-                <h2 className="text-3xl font-bold text-kadhai">{cat.name}</h2>
-                {cat.description && <p className="mt-1 text-muted">{cat.description}</p>}
+                <h2 className="text-3xl font-bold text-kadhai">{categoryName}</h2>
+                {!usingLeadr && cat?.description && <p className="mt-1 text-muted">{cat.description}</p>}
               </div>
 
               {cards.length > 0 ? (

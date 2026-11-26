@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatRupees } from "@/lib/pricing";
+import { getEnv } from "@/lib/env";
+import LeadrOrders from "@/components/leadr-admin/(panel)/orders/page";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +11,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
+  if (getEnv().COMMERCE_BACKEND === "leadr") return <LeadrOrders />;
   const sp = await searchParams;
   const q = (sp.q || "").trim();
   const status = (sp.status || "").trim();

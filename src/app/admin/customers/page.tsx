@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { getEnv } from "@/lib/env";
+import LeadrCustomers from "@/components/leadr-admin/(panel)/customers/page";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCustomersPage() {
+  if (getEnv().COMMERCE_BACKEND === "leadr") return <LeadrCustomers />;
   const customers = await prisma.user.findMany({
     where: { role: "CUSTOMER" },
     orderBy: { createdAt: "desc" },

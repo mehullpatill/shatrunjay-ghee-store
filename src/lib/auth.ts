@@ -4,6 +4,7 @@ import type { User, UserRole } from "@prisma/client";
 import { authenticator } from "otplib";
 import { prisma } from "./prisma";
 import { generateOpaqueToken, hashIp, hashToken } from "./security";
+import { getAdmin, isLeadrAdminEnabled } from "./adminSession";
 
 export const SESSION_COOKIE_NAME = "sj_session";
 const SESSION_TTL_DAYS = 14;
@@ -64,7 +65,7 @@ export async function invalidateCurrentSession(): Promise<void> {
 export async function getCurrentUser(): Promise<SafeUser | null> {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!raw) return null;
+  if (!raw) return getLeadrAdminUser();
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(raw) },
@@ -89,10 +90,19 @@ export async function getCurrentUser(): Promise<SafeUser | null> {
     if (session) {
       await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
     }
-    return null;
+    return getLeadrAdminUser();
   }
 
   return session.user;
+}
+
+/** Allows Prisma-backed CMS/admin features to remain available after Leadr SSO. */
+async function getLeadrAdminUser(): Promise<SafeUser | null> {
+  if (!isLeadrAdminEnabled() || !(await getAdmin())) return null;
+  return prisma.user.findFirst({
+    where: { role: "ADMIN" },
+    select: { id: true, email: true, name: true, phone: true, role: true, emailVerifiedAt: true, totpEnabled: true, referralCode: true, createdAt: true },
+  });
 }
 
 export async function requireRole(role?: UserRole): Promise<SafeUser> {

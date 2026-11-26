@@ -138,11 +138,13 @@ export default function CheckoutClient({
   savedAddresses: initialSavedAddresses,
   checkoutNotes,
   razorpayKeyId,
+  commerceBackend,
 }: {
   user: { name: string; email: string; phone: string | null; emailVerified: boolean } | null;
   savedAddresses: SavedAddress[];
   checkoutNotes: { mumbai: string; outsideMumbai: string };
   razorpayKeyId: string;
+  commerceBackend: string;
 }) {
   const router = useRouter();
   const { items, subtotalPaise, clearCart } = useCart();
@@ -280,6 +282,10 @@ export default function CheckoutClient({
   /* ---- discount ---- */
   const applyDiscount = async () => {
     setDiscountError("");
+    if (commerceBackend === "leadr") {
+      setAppliedDiscount(discountCode.trim() ? { code: discountCode.trim(), discountPaise: 0, kind: "LEADR" } : null);
+      return;
+    }
     const res = await fetch("/api/discounts/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -304,7 +310,7 @@ export default function CheckoutClient({
       setError("Please accept the Terms of Service, Privacy Policy, Shipping and Refund Policy.");
       return;
     }
-    if (paymentMethod === "RAZORPAY" && !window.Razorpay) {
+    if (commerceBackend !== "leadr" && paymentMethod === "RAZORPAY" && !window.Razorpay) {
       setError("Payment gateway is still loading. Please wait a moment and try again.");
       return;
     }
@@ -324,6 +330,9 @@ export default function CheckoutClient({
       });
       const data = (await res.json()) as {
         error?: string;
+        detail?: string;
+        payment_url?: string;
+        order_number?: string;
         orderId?: string;
         orderNumber?: string;
         paymentMethod?: string;
@@ -331,6 +340,24 @@ export default function CheckoutClient({
         amountPaise?: number;
         currency?: string;
       };
+
+      if (commerceBackend === "leadr") {
+        if (!res.ok) {
+          setError(data.error || data.detail || "Failed to place the order.");
+          setSubmitting(false);
+          return;
+        }
+        clearCart();
+        if (data.payment_url) {
+          window.location.assign(data.payment_url);
+        } else if (data.order_number) {
+          router.push(`/track?order=${encodeURIComponent(data.order_number)}&phone=${encodeURIComponent(phone)}`);
+        } else {
+          setError("Leadr returned an incomplete order response.");
+          setSubmitting(false);
+        }
+        return;
+      }
 
       if (!res.ok || (data.paymentMethod === "COD" && !data.orderId) || (data.paymentMethod === "RAZORPAY" && !data.razorpayOrderId)) {
         setError(data.error || "Failed to prepare checkout.");

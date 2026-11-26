@@ -15,6 +15,16 @@ const envSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url().optional().default("https://shatrunjay-ghee-store.vercel.app"),
   AUTH_SECRET: z.string().optional().default(""),
 
+  COMMERCE_BACKEND: z.enum(["prisma", "leadr"]).default("prisma"),
+  NEXT_PUBLIC_COMMERCE_BACKEND: z.enum(["prisma", "leadr"]).optional().default("prisma"),
+  // Empty is valid while the Prisma backend is selected; Leadr validates the
+  // URL again when a Leadr request is actually made.
+  LEADR_API_URL: z.union([z.string().url(), z.literal("")]).default(""),
+  LEADR_API_KEY: z.string().optional().default(""),
+  SHOP_ORG_ID: z.string().optional().default(""),
+  NEXT_PUBLIC_RAHTSAA_ID_URL: z.string().url().optional().default("https://id.rahtsaaai.com"),
+  DEV_ADMIN_TOKEN: z.string().optional().default(""),
+
   // Optional integrations. Feature modules must check these before use.
   RAZORPAY_KEY_ID: z.string().optional().default(""),
   RAZORPAY_KEY_SECRET: z.string().optional().default(""),

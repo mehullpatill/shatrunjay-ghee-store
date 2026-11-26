@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
+import { getEnv } from "@/lib/env";
+import { getCommerceProducts } from "@/lib/commerce";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Groundnut Oil" };
 export const revalidate = 120;
 
 export default async function GroundnutOilPage() {
+  const usingLeadr = getEnv().COMMERCE_BACKEND === "leadr";
+  const leadrProducts = usingLeadr ? await getCommerceProducts() : [];
   const [banner, category, proc] = await Promise.all([
     prisma.banner.findFirst({ where: { placement: "GROUNDNUT_STATIC", active: true } }),
     prisma.category.findUnique({
@@ -28,21 +32,15 @@ export default async function GroundnutOilPage() {
     }),
   ]);
 
-  const cards: ProductCardData[] = (category?.products ?? [])
-    .map((p) => {
-      const v = p.variants[0];
-      if (!v) return null;
-      return {
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        categoryName: category?.name || "Groundnut Oil",
-        categorySlug: "groundnut-oil",
-        imageUrl: p.images[0]?.url || "/brand/photos/kitchen.jpg",
-        defaultVariant: v,
-      };
-    })
-    .filter(Boolean) as ProductCardData[];
+  const cards: ProductCardData[] = usingLeadr
+    ? leadrProducts.filter((p) => p.categorySlug === "groundnut-oil").map((p) => {
+        const v = p.variants[0];
+        return v ? { id: p.id, slug: p.slug, name: p.name, categoryName: "Groundnut Oil", categorySlug: "groundnut-oil", imageUrl: p.imageUrl, defaultVariant: v } : null;
+      }).filter(Boolean) as ProductCardData[]
+    : (category?.products ?? []).map((p) => {
+        const v = p.variants[0];
+        return v ? { id: p.id, slug: p.slug, name: p.name, categoryName: category?.name || "Groundnut Oil", categorySlug: "groundnut-oil", imageUrl: p.images[0]?.url || "/brand/photos/kitchen.jpg", defaultVariant: v } : null;
+      }).filter(Boolean) as ProductCardData[];
 
   return (
     <div>

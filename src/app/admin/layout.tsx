@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
+import { getAdmin, isLeadrAdminEnabled } from "@/lib/adminSession";
+import LeadrSidebar from "@/components/leadr-admin/(panel)/Sidebar";
 
 const ADMIN_NAV: [string, string][] = [
   ["Dashboard", "/admin"],
@@ -18,6 +21,20 @@ const ADMIN_NAV: [string, string][] = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (isLeadrAdminEnabled()) {
+    const path = (await headers()).get("x-invoke-path") || (await headers()).get("next-url") || "";
+    const admin = await getAdmin();
+    if (!admin && path.endsWith("/admin/login")) return <>{children}</>;
+    if (!admin) redirect("/admin/login");
+    return (
+      <div className="adm min-h-screen md:flex">
+        <LeadrSidebar />
+        <main className="min-w-0 flex-1 px-4 pb-16 pt-5 md:px-8 md:pt-7">
+          <div className="mx-auto max-w-[1280px]">{children}</div>
+        </main>
+      </div>
+    );
+  }
   const user = await getCurrentUser();
   if (!user) redirect("/login?returnTo=/admin");
   if (user.role !== "ADMIN") redirect("/");

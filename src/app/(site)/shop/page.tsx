@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
+import { getEnv } from "@/lib/env";
+import { getCommerceProducts } from "@/lib/commerce";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Shop All" };
@@ -23,63 +25,64 @@ export default async function ShopAllPage({
     orderBy: { sortOrder: "asc" },
   });
 
-  const where: Record<string, unknown> = { active: true };
-  if (categorySlug) {
-    where.category = { slug: categorySlug };
-  }
-  if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { shortDescription: { contains: q, mode: "insensitive" } },
-    ];
-  }
-  if (sort === "featured") where.isFeatured = true;
-  if (sort === "most_bought") where.isMostBought = true;
-  if (sort === "fresh_arrivals") where.isFreshArrival = true;
+  let cards: ProductCardData[] = [];
+  let totalCount = 0;
 
-  const [totalCount, productsRaw] = await Promise.all([
-    prisma.product.count({ where }),
-    prisma.product.findMany({
-      where,
-      include: {
-        category: true,
-        images: { orderBy: { sortOrder: "asc" }, take: 1 },
-        variants: { where: { active: true }, orderBy: { pricePaise: "asc" } },
-      },
-      orderBy:
-        sort === "featured"
-          ? { featuredOrder: "asc" }
-          : sort === "most_bought"
-          ? { mostBoughtOrder: "asc" }
-          : sort === "fresh_arrivals"
-          ? { freshArrivalOrder: "asc" }
-          : { createdAt: "desc" },
-      ...(sort === "price_asc" || sort === "price_desc"
-        ? {}
-        : { skip: (page - 1) * pageSize, take: pageSize }),
-    }),
-  ]);
-
-  // If filter (e.g. featured) returned 0 when no sort was explicitly chosen, fallback to all active
-  let cards: ProductCardData[] = productsRaw
-    .map((p) => {
+  if (getEnv().COMMERCE_BACKEND === "leadr") {
+    const products = (await getCommerceProducts()).filter((product) => {
+      const matchesCategory = !categorySlug || product.categorySlug === categorySlug;
+      const search = `${product.name} ${product.shortDescription ?? ""}`.toLowerCase();
+      return matchesCategory && (!q || search.includes(q.toLowerCase()));
+    });
+    cards = products.map((product) => ({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      categoryName: product.categoryName,
+      categorySlug: product.categorySlug,
+      imageUrl: product.imageUrl,
+      defaultVariant: product.variants[0],
+    })).filter((product): product is ProductCardData => Boolean(product.defaultVariant));
+    if (sort === "price_asc") cards.sort((a, b) => a.defaultVariant.pricePaise - b.defaultVariant.pricePaise);
+    if (sort === "price_desc") cards.sort((a, b) => b.defaultVariant.pricePaise - a.defaultVariant.pricePaise);
+    totalCount = cards.length;
+    cards = cards.slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    const where: Record<string, unknown> = { active: true };
+    if (categorySlug) where.category = { slug: categorySlug };
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { shortDescription: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    if (sort === "featured") where.isFeatured = true;
+    if (sort === "most_bought") where.isMostBought = true;
+    if (sort === "fresh_arrivals") where.isFreshArrival = true;
+    const [count, productsRaw] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          images: { orderBy: { sortOrder: "asc" }, take: 1 },
+          variants: { where: { active: true }, orderBy: { pricePaise: "asc" } },
+        },
+        orderBy:
+          sort === "featured" ? { featuredOrder: "asc" } : sort === "most_bought" ? { mostBoughtOrder: "asc" } : sort === "fresh_arrivals" ? { freshArrivalOrder: "asc" } : { createdAt: "desc" },
+        ...(sort === "price_asc" || sort === "price_desc" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
+      }),
+    ]);
+    totalCount = count;
+    cards = productsRaw.map((p) => {
       const v = p.variants[0];
       if (!v) return null;
-      return {
-        id: p.id,
-        slug: p.slug,
-        name: p.name,
-        categoryName: p.category.name,
-        categorySlug: p.category.slug,
-        imageUrl: p.images[0]?.url || "/brand/photos/pack-cow.jpg",
-        defaultVariant: v,
-      };
-    })
-    .filter(Boolean) as ProductCardData[];
-
-  if (sort === "price_asc") cards = [...cards].sort((a, b) => a.defaultVariant.pricePaise - b.defaultVariant.pricePaise);
-  if (sort === "price_desc") cards = [...cards].sort((a, b) => b.defaultVariant.pricePaise - a.defaultVariant.pricePaise);
-  if (sort === "price_asc" || sort === "price_desc") cards = cards.slice((page - 1) * pageSize, page * pageSize);
+      return { id: p.id, slug: p.slug, name: p.name, categoryName: p.category.name, categorySlug: p.category.slug, imageUrl: p.images[0]?.url || "/brand/photos/pack-cow.jpg", defaultVariant: v };
+    }).filter(Boolean) as ProductCardData[];
+    if (sort === "price_asc") cards = [...cards].sort((a, b) => a.defaultVariant.pricePaise - b.defaultVariant.pricePaise);
+    if (sort === "price_desc") cards = [...cards].sort((a, b) => b.defaultVariant.pricePaise - a.defaultVariant.pricePaise);
+    if (sort === "price_asc" || sort === "price_desc") cards = cards.slice((page - 1) * pageSize, page * pageSize);
+  }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 

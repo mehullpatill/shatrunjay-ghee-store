@@ -36,6 +36,8 @@ const ALLOWED_KEYS = [
   "footerContactHeading",
   "footerCopyrightText",
   "footerComplianceText",
+  "botWelcomeImageUrl",
+  "botReels",
 ] as const;
 
 const updateSettingsSchema = z.object({

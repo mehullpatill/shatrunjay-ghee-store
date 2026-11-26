@@ -2,6 +2,8 @@ import Link from "next/link";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 import { DropIcon, ShieldIcon, TruckIcon } from "@/components/icons";
 import { getGoogleReviews } from "@/lib/cms";
+import { getEnv } from "@/lib/env";
+import { getCommerceProducts, type CommerceProduct } from "@/lib/commerce";
 import { prisma } from "@/lib/prisma";
 
 export const revalidate = 120;
@@ -29,7 +31,15 @@ function toCardData(
   };
 }
 
+function commerceToCardData(p: CommerceProduct): ProductCardData | null {
+  const v = p.variants[0];
+  if (!v) return null;
+  return { id: p.id, slug: p.slug, name: p.name, categoryName: p.categoryName, categorySlug: p.categorySlug, imageUrl: p.imageUrl, defaultVariant: v };
+}
+
 export default async function HomePage() {
+  const usingLeadr = getEnv().COMMERCE_BACKEND === "leadr";
+  const leadrProducts = usingLeadr ? await getCommerceProducts() : [];
   const [banners, featuredRaw, mostBoughtRaw, freshRaw, gheeProcess, whySection, bulkSection, reels, reviewsData] =
     await Promise.all([
       prisma.banner.findMany({ where: { placement: "HOME_FLOATING", active: true }, orderBy: { sortOrder: "asc" } }),
@@ -81,9 +91,10 @@ export default async function HomePage() {
     ctaLink: "/ghee#a2-desi-cow-ghee",
   };
 
-  const featured = featuredRaw.map(toCardData).filter(Boolean) as ProductCardData[];
-  const mostBought = mostBoughtRaw.map(toCardData).filter(Boolean) as ProductCardData[];
-  const freshArrivals = freshRaw.map(toCardData).filter(Boolean) as ProductCardData[];
+  const leadrCards = leadrProducts.map(commerceToCardData).filter(Boolean) as ProductCardData[];
+  const featured = usingLeadr ? leadrCards.slice(0, 8) : featuredRaw.map(toCardData).filter(Boolean) as ProductCardData[];
+  const mostBought = usingLeadr ? leadrCards.slice(0, 8) : mostBoughtRaw.map(toCardData).filter(Boolean) as ProductCardData[];
+  const freshArrivals = usingLeadr ? leadrCards.slice(0, 8) : freshRaw.map(toCardData).filter(Boolean) as ProductCardData[];
 
   return (
     <>

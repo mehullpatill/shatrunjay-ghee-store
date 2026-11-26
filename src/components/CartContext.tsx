@@ -30,6 +30,7 @@ interface CartContextValue {
 }
 
 const STORAGE_KEY = "sj_guest_cart_v1";
+const usesLeadr = process.env.NEXT_PUBLIC_COMMERCE_BACKEND === "leadr";
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -89,6 +90,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [drawerOpen]);
 
   const syncWithServerAfterLogin = async () => {
+    if (usesLeadr) return;
     try {
       const res = await fetch("/api/cart", {
         method: "POST",
@@ -110,6 +112,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const pushReplaceToServer = (nextItems: CartItemClient[]) => {
+    if (usesLeadr) return;
     fetch("/api/cart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

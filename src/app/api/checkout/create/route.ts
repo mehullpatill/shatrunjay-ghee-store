@@ -10,6 +10,8 @@ import { resolveAndValidateDiscount } from "@/lib/discount-server";
 import { getSiteSettings } from "@/lib/cms";
 import { createRazorpayOrder } from "@/lib/razorpay";
 import { emailService } from "@/lib/ses";
+import { getEnv } from "@/lib/env";
+import { leadr } from "@/lib/leadr";
 
 export async function POST(req: Request) {
   if (!assertSameOrigin(req)) {
@@ -45,6 +47,32 @@ export async function POST(req: Request) {
   }
 
   const { items, address, paymentMethod, discountCode } = parsed.data;
+
+  if (getEnv().COMMERCE_BACKEND === "leadr") {
+    const leadrPayload = {
+      name: address.recipientName,
+      phone: address.phone,
+      email: user.email,
+      address_line: [address.line1, address.line2].filter(Boolean).join(", "),
+      area: address.city,
+      pincode: address.pincode,
+      city: address.city,
+      state: address.state,
+      payment_method: paymentMethod.toLowerCase(),
+      promo_code: discountCode || null,
+      items: items.map((item) => ({ product_id: item.variantId, quantity: item.quantity })),
+    };
+    const response = await leadr("/storefront/orders", {
+      method: "POST",
+      body: JSON.stringify(leadrPayload),
+    }).catch(() => null);
+    if (!response) return NextResponse.json({ error: "Shop is temporarily unavailable. Please try again." }, { status: 502 });
+    return new Response(await response.text(), {
+      status: response.status,
+      headers: { "Content-Type": response.headers.get("content-type") ?? "application/json" },
+    });
+  }
+
   const settings = await getSiteSettings();
 
   // Re-validate pincode server-side (COD whitelist & Mumbai ETA)

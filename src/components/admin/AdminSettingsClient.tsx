@@ -51,13 +51,17 @@ export default function AdminSettingsClient({
   const [footerLegalLinks, setFooterLegalLinks] = useState(linksToText(settings.footerLegalLinks));
   const [footerCopyrightText, setFooterCopyrightText] = useState(settings.footerCopyrightText);
   const [footerComplianceText, setFooterComplianceText] = useState(settings.footerComplianceText);
+  const [botWelcomeImageUrl, setBotWelcomeImageUrl] = useState(settings.botWelcomeImageUrl);
+  const [botCowReelUrl, setBotCowReelUrl] = useState(settings.botReels.cow);
+  const [botBuffaloReelUrl, setBotBuffaloReelUrl] = useState(settings.botReels.buffalo);
+  const [botA2ReelUrl, setBotA2ReelUrl] = useState(settings.botReels.a2);
   const [msg, setMsg] = useState("");
 
   // 2FA setup state
   const [qrUrl, setQrUrl] = useState("");
   const [totpCode, setTotpCode] = useState("");
 
-  const saveSettings = async (e: React.FormEvent) => {
+  const saveSettings = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     const res = await fetch("/api/admin/settings", {
       method: "POST",
@@ -86,6 +90,8 @@ export default function AdminSettingsClient({
           footerLegalLinks: textToLinks(footerLegalLinks),
           footerCopyrightText,
           footerComplianceText,
+          botWelcomeImageUrl,
+          botReels: { cow: botCowReelUrl, buffalo: botBuffaloReelUrl, a2: botA2ReelUrl },
         },
       }),
     });
@@ -169,6 +175,25 @@ export default function AdminSettingsClient({
 
         <button type="submit" className="btn">Save Settings</button>
       </form>
+
+      <section className="panel p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-kadhai">WhatsApp Bot Media</h2>
+          <p className="mt-1 text-xs text-muted">
+            These URLs are stored in the shared settings and can be used by the WhatsApp bot configuration. Do not place secrets here.
+          </p>
+        </div>
+        <label className="block">
+          <span className="lbl">Welcome Image URL</span>
+          <input type="url" value={botWelcomeImageUrl} onChange={(e) => setBotWelcomeImageUrl(e.target.value)} className="field" placeholder="https://..." />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="block"><span className="lbl">Cow Ghee Reel URL</span><input type="url" value={botCowReelUrl} onChange={(e) => setBotCowReelUrl(e.target.value)} className="field" placeholder="https://..." /></label>
+          <label className="block"><span className="lbl">Buffalo Ghee Reel URL</span><input type="url" value={botBuffaloReelUrl} onChange={(e) => setBotBuffaloReelUrl(e.target.value)} className="field" placeholder="https://..." /></label>
+          <label className="block"><span className="lbl">A2 Ghee Reel URL</span><input type="url" value={botA2ReelUrl} onChange={(e) => setBotA2ReelUrl(e.target.value)} className="field" placeholder="https://..." /></label>
+        </div>
+        <button type="button" onClick={saveSettings} className="btn">Save Bot Media</button>
+      </section>
 
       <div className="panel p-6 space-y-4">
         <h2 className="text-lg font-bold text-kadhai">Admin 2FA (TOTP Authenticator)</h2>

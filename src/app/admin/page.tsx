@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatRupees } from "@/lib/pricing";
+import { getEnv } from "@/lib/env";
+import LeadrOverview from "@/components/leadr-admin/(panel)/page";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  if (getEnv().COMMERCE_BACKEND === "leadr") return <LeadrOverview />;
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 

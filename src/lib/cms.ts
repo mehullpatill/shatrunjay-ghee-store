@@ -1,5 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "./prisma";
+import { getEnv } from "./env";
+import { getLeadrSite } from "./leadr";
 
 export interface FooterLink {
   label: string;
@@ -47,6 +49,12 @@ export interface SiteSettingsMap {
   footerContactHeading: string;
   footerCopyrightText: string;
   footerComplianceText: string;
+  botWelcomeImageUrl: string;
+  botReels: {
+    cow: string;
+    buffalo: string;
+    a2: string;
+  };
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettingsMap = {
@@ -119,11 +127,28 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsMap = {
   footerContactHeading: "Talk to us",
   footerCopyrightText: "© 2026 Shatrunjay Ghee by Shatrunjay Foodstuffs Private Limited. All rights reserved.",
   footerComplianceText: "",
+  botWelcomeImageUrl: "",
+  botReels: { cow: "", buffalo: "", a2: "" },
 };
 
 export const getSiteSettings = unstable_cache(
   async (): Promise<SiteSettingsMap> => {
     try {
+      if (getEnv().COMMERCE_BACKEND === "leadr") {
+        const site = await getLeadrSite();
+        const content = site?.site_content ?? {};
+        return {
+          ...DEFAULT_SITE_SETTINGS,
+          contactInfo: {
+            ...DEFAULT_SITE_SETTINGS.contactInfo,
+            phone: typeof content.phone === "string" ? content.phone : DEFAULT_SITE_SETTINGS.contactInfo.phone,
+            email: typeof content.email === "string" ? content.email : DEFAULT_SITE_SETTINGS.contactInfo.email,
+            address: typeof content.address === "string" ? content.address : DEFAULT_SITE_SETTINGS.contactInfo.address,
+          },
+          businessEmail: typeof content.email === "string" ? content.email : DEFAULT_SITE_SETTINGS.businessEmail,
+          tickerMessages: typeof content.announcement === "string" && content.announcement ? [content.announcement] : DEFAULT_SITE_SETTINGS.tickerMessages,
+        };
+      }
       const rows = await prisma.siteSetting.findMany();
       const map = new Map<string, unknown>(rows.map((r) => [r.key, r.value]));
       return {
@@ -161,6 +186,8 @@ export const getSiteSettings = unstable_cache(
         footerContactHeading: (map.get("footerContactHeading") as string) ?? DEFAULT_SITE_SETTINGS.footerContactHeading,
         footerCopyrightText: (map.get("footerCopyrightText") as string) ?? DEFAULT_SITE_SETTINGS.footerCopyrightText,
         footerComplianceText: (map.get("footerComplianceText") as string) ?? DEFAULT_SITE_SETTINGS.footerComplianceText,
+        botWelcomeImageUrl: (map.get("botWelcomeImageUrl") as string) ?? DEFAULT_SITE_SETTINGS.botWelcomeImageUrl,
+        botReels: (map.get("botReels") as SiteSettingsMap["botReels"]) ?? DEFAULT_SITE_SETTINGS.botReels,
       };
     } catch {
       return DEFAULT_SITE_SETTINGS;
